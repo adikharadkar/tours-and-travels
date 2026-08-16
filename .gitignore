@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+node_modules/
+dist/
+.vite/
+src-tauri/target/
+.env
+.env.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
