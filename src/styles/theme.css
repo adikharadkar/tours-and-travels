@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+:root {
+  --app-background: #f8fafc;
+  --app-surface: #ffffff;
+
+  --app-foreground: #171717;
+  --app-muted: #737373;
+
+  --app-border: #e5e5e5;
+
+  --app-primary: #2563eb;
+  --app-primary-hover: #1d4ed8;
+  --app-primary-foreground: #ffffff;
+
+  --app-focus: #2563eb;
+}
+
+[data-theme="dark"] {
+  --app-background: #0a0a0a;
+  --app-surface: #141414;
+
+  --app-foreground: #f5f5f5;
+  --app-muted: #a3a3a3;
+
+  --app-border: #292929;
+
+  --app-primary: #3b82f6;
+  --app-primary-hover: #2563eb;
+  --app-primary-foreground: #ffffff;
+
+  --app-focus: #3b82f6;
+}
+
+@theme {
+  --color-background: var(--app-background);
+  --color-surface: var(--app-surface);
+
+  --color-foreground: var(--app-foreground);
+  --color-muted: var(--app-muted);
+
+  --color-border: var(--app-border);
+
+  --color-primary: var(--app-primary);
+  --color-primary-hover: var(--app-primary-hover);
+  --color-primary-foreground: var(--app-primary-foreground);
+
+  --color-focus: var(--app-focus);
+}
