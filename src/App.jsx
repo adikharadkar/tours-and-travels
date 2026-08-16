@@ -1,22 +1,23 @@
-import ThemeToggle from "./components/ThemeToggle";
+import { Navigate, Route, Routes } from "react-router-dom";
+
+import AppLayout from "./layouts/AppLayout";
+import Dashboard from "./pages/Dashboard";
+import Settings from "./pages/Settings";
+import NotFound from "./pages/NotFound";
 
 function App() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-4">
-        <h1 className="text-xl font-semibold">Tauri App</h1>
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        <ThemeToggle />
-      </header>
+        <Route path="/dashboard" element={<Dashboard />} />
 
-      <main className="p-6">
-        <div className="rounded-lg border border-border bg-surface p-6">
-          <h2 className="text-lg font-semibold">Theme System</h2>
+        <Route path="/settings" element={<Settings />} />
 
-          <p className="mt-2 text-muted">Switch between light and dark mode.</p>
-        </div>
-      </main>
-    </div>
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
   );
 }
 
