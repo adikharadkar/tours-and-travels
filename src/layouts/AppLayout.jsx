@@ -11,6 +11,7 @@ const navigation = [
     name: "Settings",
     path: "/settings",
   },
+  { name: "Customers", path: "/customers" },
 ];
 
 function navigationClass({ isActive }) {

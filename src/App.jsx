@@ -4,6 +4,8 @@ import AppLayout from "./layouts/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import CustomerList from "./pages/customers/CustomerList";
+import CustomerForm from "./pages/customers/CustomerForm";
 
 function App() {
   return (
@@ -14,6 +16,10 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
 
         <Route path="/settings" element={<Settings />} />
+
+        <Route path="/customers" element={<CustomerList />} />
+        <Route path="/customers/new" element={<CustomerForm />} />
+        <Route path="/customers/:customerId/edit" element={<CustomerForm />} />
 
         <Route path="*" element={<NotFound />} />
       </Route>

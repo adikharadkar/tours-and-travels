@@ -2,9 +2,12 @@ import { forwardRef } from "react";
 
 const variantStyles = {
   primary: "bg-primary text-primary-foreground hover:bg-primary-hover",
+
   secondary:
     "border border-border bg-surface text-foreground hover:bg-background",
+
   danger: "bg-red-600 text-white hover:bg-red-700",
+
   ghost: "text-foreground hover:bg-background",
 };
 
@@ -28,6 +31,7 @@ const Button = forwardRef(function Button(
 ) {
   return (
     <button
+      {...props}
       ref={ref}
       type={type}
       disabled={disabled}
@@ -41,7 +45,6 @@ const Button = forwardRef(function Button(
         sizeStyles[size],
         className,
       ].join(" ")}
-      {...props}
     >
       {children}
     </button>

@@ -71,7 +71,7 @@ const CardContent = forwardRef(function CardContent(
   ref,
 ) {
   return (
-    <div ref={ref} className={["p-6 pt-0", className].join(" ")} {...props}>
+    <div ref={ref} className={["p-6 pt-6", className].join(" ")} {...props}>
       {children}
     </div>
   );

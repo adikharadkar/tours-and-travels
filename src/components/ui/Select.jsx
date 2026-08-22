@@ -1,7 +1,14 @@
 import { forwardRef } from "react";
 
 const Select = forwardRef(function Select(
-  { children, className = "", disabled = false, ...props },
+  {
+    children,
+    options = [],
+    className = "",
+    disabled = false,
+    placeholder,
+    ...props
+  },
   ref,
 ) {
   return (
@@ -18,6 +25,18 @@ const Select = forwardRef(function Select(
       ].join(" ")}
       {...props}
     >
+      {placeholder && (
+        <option value="" disabled>
+          {placeholder}
+        </option>
+      )}
+
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+
       {children}
     </select>
   );
