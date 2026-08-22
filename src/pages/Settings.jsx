@@ -21,7 +21,7 @@ import Tabs, {
   TabsTrigger,
 } from "../components/ui/Tabs";
 import Tooltip from "../components/ui/Tooltip";
-import DatePicker from "../components/ui/Datepicker";
+import DatePicker from "../components/ui/DatePicker";
 import SearchInput from "../components/ui/SearchInput";
 
 export default function Settings() {
