@@ -2,6 +2,85 @@ import { getNextCustomerCode } from "./customerCodeService";
 
 const CUSTOMERS_STORAGE_KEY = "customers";
 
+const DEFAULT_CUSTOMERS = [
+  {
+    id: "cust_1",
+    customerCode: "CUST-0001",
+    name: "Apex Global Logistics Ltd",
+    customerType: "company",
+    contactPerson: "Rajesh Sharma",
+    mobile1: "9820198201",
+    mobile2: "9820198202",
+    email: "travel@apexlogistics.in",
+    gstNumber: "27AAACA1234A1Z5",
+    pan: "AAACA1234A",
+    billingAddress: "402, Business Bay, Andheri East",
+    billingCity: "Mumbai",
+    billingState: "Maharashtra",
+    billingPincode: "400069",
+    creditDays: 30,
+    isActive: true,
+    createdAt: "2026-01-10T10:00:00.000Z",
+    updatedAt: "2026-01-10T10:00:00.000Z",
+  },
+  {
+    id: "cust_2",
+    customerCode: "CUST-0002",
+    name: "Horizon Escapes Tours",
+    customerType: "company",
+    contactPerson: "Pooja Verma",
+    mobile1: "9845012345",
+    email: "bookings@horizontours.com",
+    gstNumber: "29AABCH5678B1Z2",
+    pan: "AABCH5678B",
+    billingAddress: "12, MG Road, Brigade Junction",
+    billingCity: "Bengaluru",
+    billingState: "Karnataka",
+    billingPincode: "560001",
+    creditDays: 15,
+    isActive: true,
+    createdAt: "2026-02-05T09:30:00.000Z",
+    updatedAt: "2026-02-05T09:30:00.000Z",
+  },
+  {
+    id: "cust_3",
+    customerCode: "CUST-0003",
+    name: "Dr. Vikram Sethi",
+    customerType: "individual",
+    contactPerson: "Dr. Vikram Sethi",
+    mobile1: "9811223344",
+    email: "vikram.sethi@gmail.com",
+    pan: "ABCPS9876K",
+    billingAddress: "B-24, Greater Kailash 1",
+    billingCity: "New Delhi",
+    billingState: "Delhi",
+    billingPincode: "110048",
+    creditDays: 0,
+    isActive: true,
+    createdAt: "2026-02-14T14:15:00.000Z",
+    updatedAt: "2026-02-14T14:15:00.000Z",
+  },
+  {
+    id: "cust_4",
+    customerCode: "CUST-0004",
+    name: "Zenith Software Solutions",
+    customerType: "company",
+    contactPerson: "Ananya Iyer",
+    mobile1: "9766554433",
+    email: "corporate.admin@zenithsoft.io",
+    gstNumber: "27AABCZ9988C1Z8",
+    pan: "AABCZ9988C",
+    billingAddress: "Level 6, Tech Park, Hinjawadi Phase 2",
+    billingCity: "Pune",
+    billingState: "Maharashtra",
+    billingPincode: "411057",
+    creditDays: 45,
+    isActive: true,
+    createdAt: "2026-03-01T11:00:00.000Z",
+    updatedAt: "2026-03-01T11:00:00.000Z",
+  },
+];
+
 const normalize = (value) =>
   String(value ?? "")
     .trim()
@@ -12,7 +91,11 @@ const getStoredCustomers = () => {
     const storedCustomers = localStorage.getItem(CUSTOMERS_STORAGE_KEY);
 
     if (!storedCustomers) {
-      return [];
+      localStorage.setItem(
+        CUSTOMERS_STORAGE_KEY,
+        JSON.stringify(DEFAULT_CUSTOMERS),
+      );
+      return DEFAULT_CUSTOMERS;
     }
 
     const customers = JSON.parse(storedCustomers);

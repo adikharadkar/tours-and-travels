@@ -12,6 +12,10 @@ const navigation = [
     path: "/vehicles",
   },
   {
+    name: "Drivers",
+    path: "/drivers",
+  },
+  {
     name: "Customers",
     path: "/customers",
   },

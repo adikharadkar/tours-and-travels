@@ -10,8 +10,11 @@ import Card, {
 } from "../components/ui/Card";
 import { getVehicles } from "../services/vehicleService";
 import { getCustomers } from "../services/customerService";
+import { getDrivers } from "../services/driverService";
 import { getVehicleDocumentStatus } from "../utils/vehicleDocumentStatus";
+import { getDriverLicenseStatus } from "../utils/driverLicenseStatus";
 import { VEHICLE_TYPE_LABELS } from "../constants/vehicles";
+import { DRIVER_TYPE_LABELS, PREFIX_LABELS } from "../constants/drivers";
 
 const STATUS_CLASSES = {
   active: "bg-success/10 text-success border border-success/20",
@@ -25,7 +28,7 @@ function StatusBadge({ value, label }) {
   return (
     <span
       className={[
-        "inline-flex items-center rounded-full px-2 py-0.5",
+        "inline-flex items-center rounded-full px-2.5 py-0.5",
         "text-xs font-medium whitespace-nowrap",
         STATUS_CLASSES[value] ?? "bg-muted/20 text-muted border border-border",
       ].join(" ")}
@@ -39,11 +42,13 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [drivers, setDrivers] = useState([]);
 
   useEffect(() => {
     try {
       setVehicles(getVehicles());
       setCustomers(getCustomers());
+      setDrivers(getDrivers());
     } catch (err) {
       console.error("Failed to load dashboard metrics:", err);
     }
@@ -52,8 +57,13 @@ export default function Dashboard() {
   const totalVehicles = vehicles.length;
   const activeVehicles = vehicles.filter((v) => v.isActive !== false).length;
 
-  const complianceAlerts = vehicles
+  const totalDrivers = drivers.length;
+  const activeDrivers = drivers.filter((d) => d.isActive !== false).length;
+
+  // Vehicle compliance alerts
+  const vehicleComplianceAlerts = vehicles
     .map((v) => ({
+      type: "vehicle",
       vehicle: v,
       status: getVehicleDocumentStatus(v),
     }))
@@ -63,12 +73,31 @@ export default function Dashboard() {
         item.status.value === "expiring_soon",
     );
 
-  const expiredCount = complianceAlerts.filter(
-    (item) => item.status.value === "expired",
-  ).length;
-  const expiringSoonCount = complianceAlerts.filter(
-    (item) => item.status.value === "expiring_soon",
-  ).length;
+  // Driver license alerts
+  const driverLicenseAlerts = drivers
+    .map((d) => ({
+      type: "driver",
+      driver: d,
+      status: getDriverLicenseStatus(d),
+    }))
+    .filter(
+      (item) =>
+        item.status.value === "expired" ||
+        item.status.value === "expiring_soon",
+    );
+
+  const totalExpiredAlerts =
+    vehicleComplianceAlerts.filter((item) => item.status.value === "expired")
+      .length +
+    driverLicenseAlerts.filter((item) => item.status.value === "expired")
+      .length;
+
+  const totalExpiringSoonAlerts =
+    vehicleComplianceAlerts.filter(
+      (item) => item.status.value === "expiring_soon",
+    ).length +
+    driverLicenseAlerts.filter((item) => item.status.value === "expiring_soon")
+      .length;
 
   const totalCustomers = customers.length;
   const companyCustomers = customers.filter(
@@ -81,11 +110,11 @@ export default function Dashboard() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Fleet Operations Dashboard
+            Fleet & Operations Dashboard
           </h1>
           <p className="text-sm text-muted">
-            Overview of fleet capacity, compliance expirations, and client
-            management.
+            Live overview of fleet capacity, driver licenses, compliance
+            expirations, and client accounts.
           </p>
         </div>
 
@@ -99,6 +128,13 @@ export default function Dashboard() {
           </Button>
           <Button
             type="button"
+            variant="secondary"
+            onClick={() => navigate("/drivers/new")}
+          >
+            + New Driver
+          </Button>
+          <Button
+            type="button"
             variant="primary"
             onClick={() => navigate("/vehicles/new")}
           >
@@ -109,6 +145,7 @@ export default function Dashboard() {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Vehicles */}
         <Card
           className="cursor-pointer hover:border-primary/50 transition-colors"
           onClick={() => navigate("/vehicles")}
@@ -129,42 +166,50 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
+        {/* Drivers */}
+        <Card
+          className="cursor-pointer hover:border-primary/50 transition-colors"
+          onClick={() => navigate("/drivers")}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted">
+                DRIVER MASTER
+              </span>
+              <span className="text-lg">🧑‍✈️</span>
+            </div>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">
+              {totalDrivers}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              {activeDrivers} active drivers
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Expiring / Expired Compliance */}
         <Card
           className="cursor-pointer hover:border-warning/50 transition-colors"
-          onClick={() => navigate("/vehicles")}
+          onClick={() => navigate("/drivers")}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-warning">
-                EXPIRING DOCS (30D)
+                EXPIRING & EXPIRED (30D)
               </span>
               <span className="text-lg">⚠️</span>
             </div>
             <p className="mt-2 text-2xl font-bold tracking-tight text-warning">
-              {expiringSoonCount}
+              {totalExpiringSoonAlerts + totalExpiredAlerts}
             </p>
-            <p className="mt-1 text-xs text-muted">Requires upcoming renewal</p>
+            <p className="mt-1 text-xs text-muted">
+              {totalExpiredAlerts} expired · {totalExpiringSoonAlerts} expiring
+              soon
+            </p>
           </CardContent>
         </Card>
 
-        <Card
-          className="cursor-pointer hover:border-error/50 transition-colors"
-          onClick={() => navigate("/vehicles")}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-error">
-                EXPIRED DOCUMENTS
-              </span>
-              <span className="text-lg">🚫</span>
-            </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-error">
-              {expiredCount}
-            </p>
-            <p className="mt-1 text-xs text-muted">Immediate action needed</p>
-          </CardContent>
-        </Card>
-
+        {/* Customers */}
         <Card
           className="cursor-pointer hover:border-primary/50 transition-colors"
           onClick={() => navigate("/customers")}
@@ -187,76 +232,172 @@ export default function Dashboard() {
       </div>
 
       {/* Compliance Warnings Section */}
-      {complianceAlerts.length > 0 && (
+      {(vehicleComplianceAlerts.length > 0 ||
+        driverLicenseAlerts.length > 0) && (
         <Card className="border-warning/30 bg-warning/5">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base text-foreground flex items-center gap-2">
-                  <span>🚨</span> Document Compliance Attention Required
+                  <span>🚨</span> Document & Driver License Compliance Attention
+                  Required
                 </CardTitle>
                 <CardDescription>
-                  The following vehicles have documents that are expired or
-                  expiring within 30 days.
+                  Vehicles and drivers with compliance documents or driving
+                  licenses expired or expiring within 30 days.
                 </CardDescription>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/vehicles")}
-                className="text-xs"
-              >
-                View in Fleet →
-              </Button>
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-2">
-            {complianceAlerts.slice(0, 5).map(({ vehicle, status }, idx) => (
-              <div
-                key={vehicle.id || vehicle.vehicleCode || `veh_alert_${idx}`}
-                className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3 sm:flex-row sm:items-center sm:justify-between text-xs"
-              >
-                <div>
-                  <span className="font-bold text-foreground font-mono mr-2">
-                    {vehicle.vehicleNumber}
-                  </span>
-                  <span className="text-muted">
-                    ({vehicle.vehicleCode} ·{" "}
-                    {VEHICLE_TYPE_LABELS[vehicle.vehicleType] ||
-                      vehicle.vehicleType}
-                    )
-                  </span>
-                  <p className="text-muted mt-0.5">{status.summary}</p>
-                </div>
+          <CardContent className="space-y-2.5">
+            {/* Driver License alerts */}
+            {driverLicenseAlerts.map(({ driver, status }, idx) => {
+              const prefixLabel = PREFIX_LABELS[driver.prefix] || "";
+              const displayName = prefixLabel
+                ? `${prefixLabel} ${driver.name}`
+                : driver.name;
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <StatusBadge value={status.value} label={status.label} />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate(`/vehicles/${vehicle.id}/edit`)}
-                    className="h-7 text-xs"
-                  >
-                    Update
-                  </Button>
+              return (
+                <div
+                  key={driver.id || `drv_alert_${idx}`}
+                  className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3 sm:flex-row sm:items-center sm:justify-between text-xs"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-foreground">
+                        🧑‍✈️ {displayName}
+                      </span>
+                      <span className="font-mono text-muted">
+                        ({driver.driverCode} · DL: {driver.licenseNumber})
+                      </span>
+                    </div>
+                    <p className="text-muted mt-0.5">{status.message}</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <StatusBadge value={status.value} label={status.label} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate(`/drivers/${driver.id}/edit`)}
+                      className="h-7 text-xs"
+                    >
+                      Update License
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+
+            {/* Vehicle Document alerts */}
+            {vehicleComplianceAlerts
+              .slice(0, 4)
+              .map(({ vehicle, status }, idx) => (
+                <div
+                  key={vehicle.id || `veh_alert_${idx}`}
+                  className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3 sm:flex-row sm:items-center sm:justify-between text-xs"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-foreground font-mono">
+                        🚌 {vehicle.vehicleNumber}
+                      </span>
+                      <span className="text-muted">
+                        ({vehicle.vehicleCode} ·{" "}
+                        {VEHICLE_TYPE_LABELS[vehicle.vehicleType] ||
+                          vehicle.vehicleType}
+                        )
+                      </span>
+                    </div>
+                    <p className="text-muted mt-0.5">{status.summary}</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <StatusBadge value={status.value} label={status.label} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate(`/vehicles/${vehicle.id}/edit`)}
+                      className="h-7 text-xs"
+                    >
+                      Update Docs
+                    </Button>
+                  </div>
+                </div>
+              ))}
           </CardContent>
         </Card>
       )}
 
-      {/* Fleet & Recent Activity Quick Table */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* Directory Quick Tables Grid */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Drivers Quick List */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div>
+              <CardTitle className="text-base">Driver Master</CardTitle>
+              <CardDescription>Recently registered drivers</CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/drivers")}
+              className="text-xs"
+            >
+              All ({totalDrivers}) →
+            </Button>
+          </CardHeader>
+
+          <CardContent>
+            {drivers.length === 0 ? (
+              <div className="py-8 text-center text-xs text-muted">
+                No drivers registered. Click &quot;+ New Driver&quot; to begin.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {drivers.slice(0, 4).map((driver, idx) => {
+                  const lic = getDriverLicenseStatus(driver);
+                  const prefixLabel = PREFIX_LABELS[driver.prefix] || "";
+                  const displayName = prefixLabel
+                    ? `${prefixLabel} ${driver.name}`
+                    : driver.name;
+
+                  return (
+                    <div
+                      key={driver.id || `drv_dash_${idx}`}
+                      className="flex items-center justify-between py-2.5 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground truncate">
+                          {displayName}
+                        </p>
+                        <p className="text-muted truncate">
+                          {driver.driverCode} ·{" "}
+                          <span className="capitalize">
+                            {DRIVER_TYPE_LABELS[driver.driverType] ||
+                              driver.driverType}
+                          </span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <StatusBadge value={lic.value} label={lic.label} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Vehicles Quick List */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div>
               <CardTitle className="text-base">Fleet Master</CardTitle>
-              <CardDescription>
-                Recently registered fleet vehicles
-              </CardDescription>
+              <CardDescription>Registered fleet vehicles</CardDescription>
             </div>
             <Button
               variant="ghost"
@@ -264,7 +405,7 @@ export default function Dashboard() {
               onClick={() => navigate("/vehicles")}
               className="text-xs"
             >
-              All Vehicles ({totalVehicles}) →
+              All ({totalVehicles}) →
             </Button>
           </CardHeader>
 
@@ -280,9 +421,7 @@ export default function Dashboard() {
                   const doc = getVehicleDocumentStatus(vehicle);
                   return (
                     <div
-                      key={
-                        vehicle.id || vehicle.vehicleCode || `veh_list_${idx}`
-                      }
+                      key={vehicle.id || `veh_dash_${idx}`}
                       className="flex items-center justify-between py-2.5 text-xs"
                     >
                       <div className="min-w-0">
@@ -311,7 +450,7 @@ export default function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div>
               <CardTitle className="text-base">Customer Directory</CardTitle>
-              <CardDescription>Recently added client accounts</CardDescription>
+              <CardDescription>Client accounts</CardDescription>
             </div>
             <Button
               variant="ghost"
@@ -319,23 +458,20 @@ export default function Dashboard() {
               onClick={() => navigate("/customers")}
               className="text-xs"
             >
-              All Customers ({totalCustomers}) →
+              All ({totalCustomers}) →
             </Button>
           </CardHeader>
 
           <CardContent>
             {customers.length === 0 ? (
               <div className="py-8 text-center text-xs text-muted">
-                No customer records found. Click &quot;+ New Customer&quot; to
-                add.
+                No customer records found.
               </div>
             ) : (
               <div className="divide-y divide-border">
                 {customers.slice(0, 4).map((customer, idx) => (
                   <div
-                    key={
-                      customer.id || customer.customerCode || `cust_list_${idx}`
-                    }
+                    key={customer.id || `cust_dash_${idx}`}
                     className="flex items-center justify-between py-2.5 text-xs"
                   >
                     <div className="min-w-0">

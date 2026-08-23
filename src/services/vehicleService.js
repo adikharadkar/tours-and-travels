@@ -3,12 +3,95 @@ import { normalizeVehicleNumber } from "../utils/validation/vehicleValidation";
 
 const VEHICLES_STORAGE_KEY = "vehicles";
 
+const DEFAULT_VEHICLES = [
+  {
+    id: "veh_1",
+    vehicleCode: "VEH-0001",
+    vehicleNumber: "MH 12 AB 1234",
+    vehicleType: "bus",
+    make: "BharatBenz",
+    model: "1624 Sleeper Coach",
+    seatingCapacity: 36,
+    fuelType: "diesel",
+    ownershipType: "own",
+    isActive: true,
+    insuranceExpiry: "2026-11-20",
+    fitnessExpiry: "2026-10-15",
+    pucExpiry: "2026-09-10",
+    permitExpiry: "2027-03-01",
+    taxExpiry: "2026-12-31",
+    createdAt: "2026-01-10T10:00:00.000Z",
+    updatedAt: "2026-01-10T10:00:00.000Z",
+  },
+  {
+    id: "veh_2",
+    vehicleCode: "VEH-0002",
+    vehicleNumber: "MH 14 DE 5678",
+    vehicleType: "traveller",
+    make: "Force",
+    model: "Urbania Luxury 17S",
+    seatingCapacity: 17,
+    fuelType: "diesel",
+    ownershipType: "own",
+    isActive: true,
+    insuranceExpiry: "2026-09-05",
+    fitnessExpiry: "2026-12-10",
+    pucExpiry: "2026-09-01",
+    permitExpiry: "2026-11-30",
+    taxExpiry: "2026-12-31",
+    createdAt: "2026-01-15T11:00:00.000Z",
+    updatedAt: "2026-01-15T11:00:00.000Z",
+  },
+  {
+    id: "veh_3",
+    vehicleCode: "VEH-0003",
+    vehicleNumber: "DL 01 XY 9988",
+    vehicleType: "car",
+    make: "Toyota",
+    model: "Innova Crysta 2.4 ZX",
+    seatingCapacity: 7,
+    fuelType: "diesel",
+    ownershipType: "attached",
+    isActive: true,
+    insuranceExpiry: "2026-08-10",
+    fitnessExpiry: "2027-01-15",
+    pucExpiry: "2026-08-15",
+    permitExpiry: "2026-12-31",
+    taxExpiry: "2026-12-31",
+    createdAt: "2026-02-01T12:00:00.000Z",
+    updatedAt: "2026-02-01T12:00:00.000Z",
+  },
+  {
+    id: "veh_4",
+    vehicleCode: "VEH-0004",
+    vehicleNumber: "KA 05 MN 4321",
+    vehicleType: "mini_bus",
+    make: "Tata",
+    model: "Starbus Ultra",
+    seatingCapacity: 24,
+    fuelType: "cng",
+    ownershipType: "leased",
+    isActive: true,
+    insuranceExpiry: "2027-04-15",
+    fitnessExpiry: "2027-02-28",
+    pucExpiry: "2026-12-05",
+    permitExpiry: "2027-05-10",
+    taxExpiry: "2027-03-31",
+    createdAt: "2026-02-20T15:30:00.000Z",
+    updatedAt: "2026-02-20T15:30:00.000Z",
+  },
+];
+
 const getStoredVehicles = () => {
   try {
     const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
 
     if (!storedVehicles) {
-      return [];
+      localStorage.setItem(
+        VEHICLES_STORAGE_KEY,
+        JSON.stringify(DEFAULT_VEHICLES),
+      );
+      return DEFAULT_VEHICLES;
     }
 
     const vehicles = JSON.parse(storedVehicles);
@@ -111,6 +194,14 @@ export function updateVehicle(vehicleId, vehicleData) {
 
   const vehicles = getStoredVehicles();
 
+  const vehicleIndex = vehicles.findIndex(
+    (vehicle) => vehicle.id === vehicleId,
+  );
+
+  if (vehicleIndex === -1) {
+    throw new Error("Vehicle not found.");
+  }
+
   const duplicateVehicle = findDuplicateVehicle(
     vehicleData,
     vehicles,
@@ -123,14 +214,6 @@ export function updateVehicle(vehicleId, vehicleData) {
     );
   }
 
-  const vehicleIndex = vehicles.findIndex(
-    (vehicle) => vehicle.id === vehicleId,
-  );
-
-  if (vehicleIndex === -1) {
-    throw new Error("Vehicle not found.");
-  }
-
   const existingVehicle = vehicles[vehicleIndex];
 
   const formattedVehicleNumber = normalizeVehicleNumber(
@@ -140,26 +223,29 @@ export function updateVehicle(vehicleId, vehicleData) {
   const updatedVehicle = {
     ...existingVehicle,
     ...vehicleData,
+
     vehicleNumber: formattedVehicleNumber || existingVehicle.vehicleNumber,
 
-    // These must never change during an edit.
     id: existingVehicle.id,
     vehicleCode: existingVehicle.vehicleCode,
-
-    // Preserve original creation time.
     createdAt: existingVehicle.createdAt,
-
-    // Update modification time.
     updatedAt: new Date().toISOString(),
   };
 
-  vehicles[vehicleIndex] = updatedVehicle;
+  const updatedVehicles = vehicles.map((vehicle, index) =>
+    index === vehicleIndex ? updatedVehicle : vehicle,
+  );
 
   try {
-    localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(vehicles));
+    localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(updatedVehicles));
   } catch (error) {
-    console.error("Failed to update vehicle:", error);
-    throw new Error("Unable to update vehicle.", { cause: error });
+    console.error("Failed to update vehicle in localStorage:", error);
+
+    console.error("Original localStorage error:", error?.cause ?? error);
+
+    throw new Error("Unable to update vehicle.", {
+      cause: error,
+    });
   }
 
   return updatedVehicle;

@@ -8,6 +8,8 @@ import CustomerList from "./pages/customers/CustomerList";
 import CustomerForm from "./pages/customers/CustomerForm";
 import VehicleList from "./pages/vehicles/VehicleList";
 import VehicleForm from "./pages/vehicles/VehicleForm";
+import DriverList from "./pages/drivers/DriverList";
+import DriverForm from "./pages/drivers/DriverForm";
 
 function App() {
   return (
@@ -26,6 +28,10 @@ function App() {
         <Route path="/vehicles" element={<VehicleList />} />
         <Route path="/vehicles/new" element={<VehicleForm />} />
         <Route path="/vehicles/:vehicleId/edit" element={<VehicleForm />} />
+
+        <Route path="/drivers" element={<DriverList />} />
+        <Route path="/drivers/new" element={<DriverForm />} />
+        <Route path="/drivers/:driverId/edit" element={<DriverForm />} />
 
         <Route path="*" element={<NotFound />} />
       </Route>
