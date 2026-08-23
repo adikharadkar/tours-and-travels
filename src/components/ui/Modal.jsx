@@ -65,11 +65,14 @@ const Modal = forwardRef(function Modal(
         aria-modal="true"
         tabIndex={-1}
         className={[
-          "w-full max-w-lg rounded-lg border border-border",
+          "w-full rounded-lg border border-border",
           "bg-surface text-foreground shadow-lg",
-          "outline-none",
+          "outline-none max-h-[90vh] flex flex-col",
+          className.includes("max-w-") ? "" : "max-w-lg",
           className,
-        ].join(" ")}
+        ]
+          .filter(Boolean)
+          .join(" ")}
       >
         {children}
       </div>

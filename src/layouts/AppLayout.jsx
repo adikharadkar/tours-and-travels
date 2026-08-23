@@ -8,10 +8,17 @@ const navigation = [
     path: "/dashboard",
   },
   {
+    name: "Vehicles",
+    path: "/vehicles",
+  },
+  {
+    name: "Customers",
+    path: "/customers",
+  },
+  {
     name: "Settings",
     path: "/settings",
   },
-  { name: "Customers", path: "/customers" },
 ];
 
 function navigationClass({ isActive }) {
@@ -53,7 +60,9 @@ export default function AppLayout() {
       >
         {/* Logo */}
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-6">
-          <h1 className="text-lg font-semibold">Tauri App</h1>
+          <h1 className="text-lg font-semibold tracking-tight">
+            Tours & Travels
+          </h1>
 
           {/* Mobile close button */}
           <button

@@ -377,7 +377,12 @@ export default function CustomerForm() {
 
         navigate("/customers", {
           state: {
-            updatedCustomerId: updatedCustomer.id,
+            toast: {
+              variant: "success",
+              title: "Customer Updated",
+              message: `Customer ${updatedCustomer.name} (${updatedCustomer.customerCode}) was updated successfully.`,
+            },
+            highlightedCustomerId: updatedCustomer.id,
           },
         });
 
@@ -386,15 +391,16 @@ export default function CustomerForm() {
 
       const newCustomer = saveCustomer(payload);
 
-      setToast({
-        id: crypto.randomUUID(),
-        title: "Customer added",
-        message: `${newCustomer.customerCode} has been added successfully.`,
-        variant: "success",
-        duration: 5000,
+      navigate("/customers", {
+        state: {
+          toast: {
+            variant: "success",
+            title: "Customer Added",
+            message: `Customer ${newCustomer.name} (${newCustomer.customerCode}) was created successfully.`,
+          },
+          highlightedCustomerId: newCustomer.id,
+        },
       });
-
-      setErrors({});
     } catch (error) {
       console.error("Failed to save customer:", error);
 

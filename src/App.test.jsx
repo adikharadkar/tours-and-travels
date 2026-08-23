@@ -15,6 +15,6 @@ describe("App", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Tauri App")).toBeInTheDocument();
+    expect(screen.getByText("Tours & Travels")).toBeInTheDocument();
   });
 });

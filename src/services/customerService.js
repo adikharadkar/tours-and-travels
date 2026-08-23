@@ -21,11 +21,27 @@ const getStoredCustomers = () => {
       throw new Error("Stored customer data is invalid.");
     }
 
-    return customers;
+    let needsResave = false;
+    const normalized = customers.map((c, index) => {
+      if (!c.id) {
+        needsResave = true;
+        return {
+          ...c,
+          id: `cust_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 8)}`,
+        };
+      }
+      return c;
+    });
+
+    if (needsResave) {
+      localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify(normalized));
+    }
+
+    return normalized;
   } catch (error) {
     console.error("Failed to read customers from localStorage:", error);
 
-    throw new Error("Unable to load customer data.");
+    throw new Error("Unable to load customer data.", { cause: error });
   }
 };
 
@@ -70,7 +86,7 @@ export function deleteCustomer(customerId) {
   } catch (error) {
     console.error("Failed to delete customer from localStorage:", error);
 
-    throw new Error("Unable to delete customer.");
+    throw new Error("Unable to delete customer.", { cause: error });
   }
 
   return true;
@@ -183,7 +199,7 @@ export function updateCustomer(customerId, customerData) {
   } catch (error) {
     console.error("Failed to update customer:", error);
 
-    throw new Error("Unable to update customer.");
+    throw new Error("Unable to update customer.", { cause: error });
   }
 
   return updatedCustomer;
@@ -204,9 +220,20 @@ export function saveCustomer(customerData) {
     );
   }
 
+  const newId =
+    customerData.id ||
+    (typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `cust_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+
+  const now = new Date().toISOString();
+
   const customer = {
     ...customerData,
-    customerCode: getNextCustomerCode(),
+    id: newId,
+    customerCode: customerData.customerCode || getNextCustomerCode(),
+    createdAt: customerData.createdAt || now,
+    updatedAt: customerData.updatedAt || now,
   };
 
   const updatedCustomers = [...customers, customer];
@@ -219,7 +246,7 @@ export function saveCustomer(customerData) {
   } catch (error) {
     console.error("Failed to save customer to localStorage:", error);
 
-    throw new Error("Unable to save customer.");
+    throw new Error("Unable to save customer.", { cause: error });
   }
 
   return customer;

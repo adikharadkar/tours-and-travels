@@ -2,12 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 import Button from "../../components/ui/Button";
-import Card, {
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../../components/ui/Card";
+import Card, { CardContent } from "../../components/ui/Card";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
 import Table, {
@@ -20,516 +15,550 @@ import Table, {
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Toast from "../../components/ui/Toast";
 import CustomerCard from "./CustomerCard";
-import { getCustomers, deleteCustomer } from "../../services/customerService";
-import { getCustomerAccountStatus } from "../../utils/customerAccountStatus";
 import CustomerDetailsModal from "../../components/customer/CustomerDetailsModal";
+import { getCustomers, deleteCustomer } from "../../services/customerService";
 
-const CUSTOMER_STATUS_OPTIONS = [
-  {
-    label: "All Statuses",
-    value: "all",
-  },
-  {
-    label: "Active",
-    value: "active",
-  },
-  {
-    label: "Inactive",
-    value: "inactive",
-  },
+const CUSTOMER_TYPE_FILTER_OPTIONS = [
+  { label: "All Customer Types", value: "all" },
+  { label: "Corporate / Company", value: "company" },
+  { label: "Individual", value: "individual" },
 ];
 
-const ACCOUNT_STATUS_OPTIONS = [
-  {
-    label: "All Accounts",
-    value: "all",
-  },
-  {
-    label: "No Dues",
-    value: "no_dues",
-  },
-  {
-    label: "Due",
-    value: "due",
-  },
-  {
-    label: "Overdue",
-    value: "overdue",
-  },
-  {
-    label: "Credit",
-    value: "credit",
-  },
+const ACCOUNT_STATUS_FILTER_OPTIONS = [
+  { label: "All Statuses", value: "all" },
+  { label: "Active", value: "active" },
+  { label: "Inactive", value: "inactive" },
 ];
 
 const STATUS_CLASSES = {
-  active: "bg-success/10 text-success",
-  inactive: "bg-muted/20 text-muted",
-
-  no_dues: "bg-success/10 text-success",
-  due: "bg-warning/10 text-warning",
-  overdue: "bg-error/10 text-error",
-  credit: "bg-primary/10 text-primary",
+  active: "bg-success/10 text-success border border-success/20",
+  inactive: "bg-muted/20 text-muted border border-border",
 };
 
 function StatusBadge({ value, label }) {
+  const normalized = String(value || "").toLowerCase();
   return (
     <span
       className={[
-        "inline-flex items-center rounded-full px-2.5 py-1",
-        "text-xs font-medium",
-        STATUS_CLASSES[value] ?? "bg-muted/20 text-muted",
+        "inline-flex items-center rounded-full px-2.5 py-0.5",
+        "text-xs font-medium whitespace-nowrap",
+        STATUS_CLASSES[normalized] ??
+          "bg-muted/20 text-muted border border-border",
       ].join(" ")}
     >
-      {label}
+      {label || (normalized === "active" ? "Active" : "Inactive")}
     </span>
   );
 }
 
 export default function CustomerList() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [customers, setCustomers] = useState([]);
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [search, setSearch] = useState("");
-  const [customerStatus, setCustomerStatus] = useState("all");
-  const [accountStatus, setAccountStatus] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loadError, setLoadError] = useState("");
   const [toast, setToast] = useState(null);
   const [highlightedCustomerId, setHighlightedCustomerId] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
-  const navigate = useNavigate();
-  const location = useLocation();
-  const updatedCustomerId = location.state?.updatedCustomerId ?? null;
-
-  const loadCustomers = () => {
+  const loadData = () => {
     try {
+      const data = getCustomers();
+      setCustomers(data);
       setLoadError("");
-
-      const storedCustomers = getCustomers();
-
-      setCustomers(storedCustomers);
-    } catch (error) {
-      console.error("Failed to load customers:", error);
-
-      setLoadError("Unable to load customers.");
-
-      setCustomers([]);
+    } catch (err) {
+      console.error("Failed to load customers:", err);
+      setLoadError("Failed to load customers from storage.");
     }
   };
 
   useEffect(() => {
-    loadCustomers();
+    loadData();
   }, []);
 
   useEffect(() => {
-    if (!updatedCustomerId) {
-      return;
-    }
-
-    const updatedCustomer = customers.find(
-      (customer) => customer.id === updatedCustomerId,
-    );
-
-    setHighlightedCustomerId(updatedCustomerId);
-
-    if (updatedCustomer) {
+    // Handle both new format (toast + highlightedCustomerId) and legacy format (updatedCustomerId)
+    if (location.state?.toast) {
       setToast({
-        id: crypto.randomUUID(),
-        title: "Customer updated",
-        message: `${updatedCustomer.customerCode} has been updated successfully.`,
-        variant: "success",
-        duration: 5000,
+        id: Date.now(),
+        ...location.state.toast,
       });
     }
 
-    navigate("/customers", {
-      replace: true,
-      state: {},
-    });
+    const targetId =
+      location.state?.highlightedCustomerId ||
+      location.state?.updatedCustomerId;
 
-    const timeout = setTimeout(() => {
-      setHighlightedCustomerId(null);
-    }, 4000);
+    if (targetId) {
+      setHighlightedCustomerId(targetId);
+      const timer = setTimeout(() => {
+        setHighlightedCustomerId(null);
+      }, 3500);
 
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [updatedCustomerId, customers, navigate]);
-
-  const handleToastClose = () => {
-    setToast(null);
-  };
-
-  const handleDelete = (customer) => {
-    setCustomerToDelete(customer);
-  };
-
-  const handleConfirmDelete = () => {
-    if (!customerToDelete) {
-      return;
+      return () => clearTimeout(timer);
     }
-
-    setIsDeleting(true);
-
-    try {
-      deleteCustomer(customerToDelete.id);
-
-      setCustomers((previous) =>
-        previous.filter((customer) => customer.id !== customerToDelete.id),
-      );
-
-      setToast({
-        id: crypto.randomUUID(),
-        title: "Customer deleted",
-        message: `${customerToDelete.customerCode} has been deleted successfully.`,
-        variant: "success",
-        duration: 5000,
-      });
-
-      setCustomerToDelete(null);
-    } catch (error) {
-      console.error("Failed to delete customer:", error);
-
-      setToast({
-        id: crypto.randomUUID(),
-        title: "Unable to delete customer",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Something went wrong. Please try again.",
-        variant: "error",
-        duration: 5000,
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleCloseDeleteDialog = () => {
-    if (isDeleting) {
-      return;
-    }
-
-    setCustomerToDelete(null);
-  };
+  }, [location.state]);
 
   const filteredCustomers = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    const query = search.trim().toLowerCase();
 
     return customers.filter((customer) => {
-      const matchesSearch =
-        !normalizedSearch ||
-        [
-          customer.name,
-          customer.customerCode,
-          customer.mobile1,
-          customer.gstNumber,
-          customer.contactPerson,
-        ]
-          .filter(Boolean)
-          .some((value) =>
-            String(value).toLowerCase().includes(normalizedSearch),
-          );
+      // 1. Search: Name, Customer Code, Mobile, Email, GST Number, City
+      if (query) {
+        const matchName = (customer.name || "").toLowerCase().includes(query);
+        const matchCode = (customer.customerCode || "")
+          .toLowerCase()
+          .includes(query);
+        const matchMobile1 = (customer.mobile1 || "")
+          .toLowerCase()
+          .includes(query);
+        const matchMobile2 = (customer.mobile2 || "")
+          .toLowerCase()
+          .includes(query);
+        const matchEmail = (customer.email || "").toLowerCase().includes(query);
+        const matchGst = (customer.gstNumber || "")
+          .toLowerCase()
+          .includes(query);
+        const matchCity = (customer.billingCity || customer.city || "")
+          .toLowerCase()
+          .includes(query);
+        const matchContact = (customer.contactPerson || "")
+          .toLowerCase()
+          .includes(query);
 
-      const matchesCustomerStatus =
-        customerStatus === "all" ||
-        (customerStatus === "active" && customer.isActive) ||
-        (customerStatus === "inactive" && !customer.isActive);
+        if (
+          !matchName &&
+          !matchCode &&
+          !matchMobile1 &&
+          !matchMobile2 &&
+          !matchEmail &&
+          !matchGst &&
+          !matchCity &&
+          !matchContact
+        ) {
+          return false;
+        }
+      }
 
-      const customerAccountStatus = getCustomerAccountStatus(customer);
+      // 2. Type Filter
+      if (typeFilter !== "all" && customer.customerType !== typeFilter) {
+        return false;
+      }
 
-      const matchesAccountStatus =
-        accountStatus === "all" ||
-        customerAccountStatus.value === accountStatus;
+      // 3. Status Filter
+      if (statusFilter !== "all") {
+        const isActive = customer.isActive !== false;
+        if (statusFilter === "active" && !isActive) return false;
+        if (statusFilter === "inactive" && isActive) return false;
+      }
 
-      return matchesSearch && matchesCustomerStatus && matchesAccountStatus;
+      return true;
     });
-  }, [customers, search, customerStatus, accountStatus]);
+  }, [customers, search, typeFilter, statusFilter]);
 
-  const handleView = (customer) => {
-    setSelectedCustomer(customer);
-  };
+  const stats = useMemo(() => {
+    let activeCount = 0;
+    let corporateCount = 0;
+    let individualCount = 0;
 
-  const handleCloseCustomerDetails = () => {
-    setSelectedCustomer(null);
-  };
+    customers.forEach((c) => {
+      const isActive = c.isActive !== false;
+      if (isActive) activeCount++;
+      if (c.customerType === "company") corporateCount++;
+      else individualCount++;
+    });
 
-  const handleEditFromModal = (customer) => {
-    setSelectedCustomer(null);
+    return {
+      total: customers.length,
+      active: activeCount,
+      corporate: corporateCount,
+      individual: individualCount,
+    };
+  }, [customers]);
 
-    navigate(`/customers/${customer.id}/edit`);
+  const hasActiveFilters =
+    search.trim() !== "" || typeFilter !== "all" || statusFilter !== "all";
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setTypeFilter("all");
+    setStatusFilter("all");
   };
 
   const handleEdit = (customer) => {
     navigate(`/customers/${customer.id}/edit`);
   };
 
-  const handleAddCustomer = () => {
-    navigate("/customers/new");
+  const handleConfirmDelete = () => {
+    if (!customerToDelete) return;
+    setIsDeleting(true);
+
+    try {
+      deleteCustomer(customerToDelete.id);
+      setCustomers((prev) => prev.filter((c) => c.id !== customerToDelete.id));
+
+      if (selectedCustomer?.id === customerToDelete.id) {
+        setSelectedCustomer(null);
+      }
+
+      setToast({
+        id: Date.now(),
+        variant: "success",
+        title: "Customer Deleted",
+        message: `Customer ${customerToDelete.name} (${customerToDelete.customerCode}) was removed successfully.`,
+      });
+      setCustomerToDelete(null);
+    } catch (err) {
+      console.error("Delete customer error:", err);
+      setToast({
+        id: Date.now(),
+        variant: "error",
+        title: "Delete Failed",
+        message: err.message || "Failed to delete customer.",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
-    <>
+    <div className="space-y-6 pb-12">
       {toast && (
-        <div className="fixed right-6 top-6 z-50">
-          <Toast
-            id={toast.id}
-            title={toast.title}
-            message={toast.message}
-            variant={toast.variant}
-            duration={toast.duration}
-            onClose={handleToastClose}
-          />
-        </div>
+        <Toast
+          id={toast.id}
+          variant={toast.variant}
+          title={toast.title}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
       )}
-      <div className="mx-auto w-full max-w-7xl space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              Customers
-            </h1>
 
-            <p className="mt-1 text-sm text-muted">
-              Manage customers and monitor their account status.
-            </p>
-          </div>
-
-          <Button type="button" onClick={handleAddCustomer}>
-            Add Customer
-          </Button>
-        </div>
-
-        {/* Load error */}
-        {loadError && (
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-sm text-error">{loadError}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Filters */}
-        <Card>
-          <CardContent className="flex min-h-[110px] items-center p-4">
-            <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-3">
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search customers..."
-              />
-
-              <Select
-                value={customerStatus}
-                onChange={(event) => setCustomerStatus(event.target.value)}
-                options={CUSTOMER_STATUS_OPTIONS}
-              />
-
-              <Select
-                value={accountStatus}
-                onChange={(event) => setAccountStatus(event.target.value)}
-                options={ACCOUNT_STATUS_OPTIONS}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Result count */}
-        <div className="flex items-center justify-between">
+      {/* Top Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Customers
+          </h1>
           <p className="text-sm text-muted">
-            {filteredCustomers.length}{" "}
-            {filteredCustomers.length === 1 ? "customer" : "customers"}
+            Manage your client master, corporate GST details, contact books, and
+            credit terms.
           </p>
         </div>
 
-        {/* ============================
-          DESKTOP TABLE
-      ============================= */}
-        <div className="hidden md:block">
-          <Card>
-            <CardHeader>
-              <CardTitle>Customer List</CardTitle>
+        <Button
+          type="button"
+          variant="primary"
+          onClick={() => navigate("/customers/new")}
+          className="shrink-0"
+        >
+          + Add Customer
+        </Button>
+      </div>
 
-              <CardDescription>
-                All customers stored in the application.
-              </CardDescription>
-            </CardHeader>
+      {/* Overview Metric Bar */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-lg border border-border bg-surface p-3.5">
+          <p className="text-xs font-medium text-muted">Total Customers</p>
+          <p className="mt-1 text-xl font-bold tracking-tight text-foreground">
+            {stats.total}
+          </p>
+        </div>
 
-            <CardContent>
+        <div className="rounded-lg border border-border bg-surface p-3.5">
+          <p className="text-xs font-medium text-muted">Active Accounts</p>
+          <p className="mt-1 text-xl font-bold tracking-tight text-success">
+            {stats.active}
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-3.5">
+          <p className="text-xs font-medium text-muted">
+            Corporate / Companies
+          </p>
+          <p className="mt-1 text-xl font-bold tracking-tight text-primary">
+            {stats.corporate}
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-3.5">
+          <p className="text-xs font-medium text-muted">Individuals</p>
+          <p className="mt-1 text-xl font-bold tracking-tight text-foreground">
+            {stats.individual}
+          </p>
+        </div>
+      </div>
+
+      {/* Search and Filters Card */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {/* Search */}
+            <div>
+              <Input
+                placeholder="Search name, code, phone, GSTIN..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+
+            {/* Type Filter */}
+            <div>
+              <Select
+                value={typeFilter}
+                options={CUSTOMER_TYPE_FILTER_OPTIONS}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <Select
+                value={statusFilter}
+                options={ACCOUNT_STATUS_FILTER_OPTIONS}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+
+          {hasActiveFilters && (
+            <div className="flex items-center justify-between pt-2 border-t border-border text-xs text-muted">
+              <span>
+                Showing {filteredCustomers.length} of {customers.length}{" "}
+                customers
+              </span>
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="font-medium text-primary hover:underline"
+              >
+                Reset all filters
+              </button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Main Content Area */}
+      {loadError ? (
+        <Card className="border-error/30 bg-error/5 p-6 text-center">
+          <p className="text-sm font-medium text-error">{loadError}</p>
+        </Card>
+      ) : customers.length === 0 ? (
+        <Card className="py-12 text-center">
+          <CardContent className="space-y-4">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xl">
+              👥
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-foreground">
+                No customers added yet
+              </h3>
+              <p className="mt-1 text-sm text-muted">
+                Add your first customer to start tracking bookings and
+                invoicing.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => navigate("/customers/new")}
+            >
+              + Add First Customer
+            </Button>
+          </CardContent>
+        </Card>
+      ) : filteredCustomers.length === 0 ? (
+        <Card className="py-12 text-center">
+          <CardContent className="space-y-3">
+            <h3 className="text-base font-semibold text-foreground">
+              No matching customers found
+            </h3>
+            <p className="text-sm text-muted">
+              No customers matched your search query and filter criteria.
+            </p>
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear Filters
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Mobile View: Cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:hidden">
+            {filteredCustomers.map((customer, idx) => (
+              <CustomerCard
+                key={customer.id || customer.customerCode || `cust_card_${idx}`}
+                customer={customer}
+                highlighted={customer.id === highlightedCustomerId}
+                onView={(c) => setSelectedCustomer(c)}
+                onEdit={(c) => handleEdit(c)}
+                onDelete={(c) => setCustomerToDelete(c)}
+              />
+            ))}
+          </div>
+
+          {/* Desktop View: Table */}
+          <div className="hidden md:block">
+            <Card className="overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Customer</TableHead>
+                    <TableHead>Customer Code</TableHead>
+                    <TableHead>Customer Name</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Contact Person</TableHead>
-                    <TableHead>Mobile</TableHead>
-                    <TableHead>Account</TableHead>
+                    <TableHead>Contact Number</TableHead>
+                    <TableHead>City / State</TableHead>
+                    <TableHead>GSTIN / Tax ID</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
 
                 <TableBody>
-                  {filteredCustomers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="py-12 text-center">
-                        <p className="text-sm font-medium text-foreground">
-                          No customers found
-                        </p>
+                  {filteredCustomers.map((customer, idx) => {
+                    const isHighlighted = customer.id === highlightedCustomerId;
+                    const isCompany = customer.customerType === "company";
+                    const isActive = customer.isActive !== false;
+                    const locationCity = [
+                      customer.billingCity || customer.city,
+                      customer.billingState || customer.state,
+                    ]
+                      .filter(Boolean)
+                      .join(", ");
 
-                        <p className="mt-1 text-sm text-muted">
-                          Add a customer or change your search filters.
-                        </p>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredCustomers.map((customer) => {
-                      const accountStatus = getCustomerAccountStatus(customer);
+                    return (
+                      <TableRow
+                        key={
+                          customer.id ||
+                          customer.customerCode ||
+                          `cust_row_${idx}`
+                        }
+                        className={
+                          isHighlighted
+                            ? "bg-primary/5 transition-colors duration-500 ring-1 ring-inset ring-primary/30"
+                            : ""
+                        }
+                      >
+                        <TableCell className="font-mono text-xs text-muted whitespace-nowrap">
+                          {customer.customerCode}
+                        </TableCell>
 
-                      const customerStatus = customer.isActive
-                        ? {
-                            value: "active",
-                            label: "Active",
-                          }
-                        : {
-                            value: "inactive",
-                            label: "Inactive",
-                          };
+                        <TableCell className="font-bold tracking-tight text-foreground">
+                          <div className="max-w-[200px] truncate">
+                            {customer.name}
+                          </div>
+                          {customer.email && (
+                            <span className="block text-xs font-normal text-muted truncate max-w-[200px]">
+                              {customer.email}
+                            </span>
+                          )}
+                        </TableCell>
 
-                      return (
-                        <TableRow
-                          key={customer.id}
-                          className={
-                            highlightedCustomerId === customer.id
-                              ? "bg-primary/10 ring-1 ring-inset ring-primary/30"
-                              : ""
-                          }
-                        >
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-foreground">
-                                {customer.name}
-                              </p>
+                        <TableCell className="whitespace-nowrap">
+                          <span className="inline-flex items-center rounded-md bg-surface px-2 py-0.5 text-xs font-medium border border-border">
+                            {isCompany ? "Company" : "Individual"}
+                          </span>
+                        </TableCell>
 
-                              <p className="mt-0.5 text-xs text-muted">
-                                {customer.customerCode}
-                              </p>
+                        <TableCell className="font-mono text-xs whitespace-nowrap">
+                          <div>{customer.mobile1 || "—"}</div>
+                          {customer.mobile2 && (
+                            <div className="text-[11px] text-muted">
+                              {customer.mobile2}
                             </div>
-                          </TableCell>
+                          )}
+                        </TableCell>
 
-                          <TableCell>
-                            {customer.customerType === "company"
-                              ? "Company"
-                              : "Individual"}
-                          </TableCell>
+                        <TableCell className="max-w-[140px] truncate text-xs text-muted">
+                          {locationCity || "—"}
+                        </TableCell>
 
-                          <TableCell>{customer.contactPerson || "-"}</TableCell>
+                        <TableCell className="font-mono text-xs whitespace-nowrap">
+                          {customer.gstNumber ? (
+                            <span className="font-semibold text-foreground">
+                              {customer.gstNumber}
+                            </span>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </TableCell>
 
-                          <TableCell>{customer.mobile1 || "-"}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <StatusBadge
+                            value={isActive ? "active" : "inactive"}
+                            label={isActive ? "Active" : "Inactive"}
+                          />
+                        </TableCell>
 
-                          <TableCell>
-                            <StatusBadge
-                              value={accountStatus.value}
-                              label={accountStatus.label}
-                            />
-                          </TableCell>
-
-                          <TableCell>
-                            <StatusBadge
-                              value={customerStatus.value}
-                              label={customerStatus.label}
-                            />
-                          </TableCell>
-
-                          <TableCell>
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={() => handleView(customer)}
-                              >
-                                View
-                              </Button>
-
-                              <Button
-                                type="button"
-                                onClick={() => handleEdit(customer)}
-                              >
-                                Edit
-                              </Button>
-
-                              <Button
-                                type="button"
-                                variant="danger"
-                                onClick={() => handleDelete(customer)}
-                              >
-                                Delete
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
+                        <TableCell className="text-right whitespace-nowrap">
+                          <div className="inline-flex items-center justify-end gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedCustomer(customer)}
+                              className="h-8 px-2.5 text-xs"
+                            >
+                              View
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(customer)}
+                              className="h-8 px-2.5 text-xs text-primary hover:text-primary"
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setCustomerToDelete(customer)}
+                              className="h-8 px-2.5 text-xs text-error hover:text-error hover:bg-error/10"
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ============================
-          MOBILE CARDS
-      ============================= */}
-        <div className="grid grid-cols-1 gap-4 md:hidden">
-          {filteredCustomers.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-sm font-medium text-foreground">
-                  No customers found
-                </p>
-
-                <p className="mt-1 text-sm text-muted">
-                  Add a customer or change your search filters.
-                </p>
-              </CardContent>
             </Card>
-          ) : (
-            filteredCustomers.map((customer) => (
-              <CustomerCard
-                key={customer.id}
-                customer={customer}
-                onView={handleView}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                highlighted={highlightedCustomerId === customer.id}
-              />
-            ))
-          )}
-        </div>
-      </div>
-      <ConfirmDialog
-        open={Boolean(customerToDelete)}
-        onClose={handleCloseDeleteDialog}
-        onConfirm={handleConfirmDelete}
-        title="Delete customer?"
-        description={
-          customerToDelete
-            ? `Are you sure you want to delete ${customerToDelete.name} (${customerToDelete.customerCode})? This action cannot be undone.`
-            : ""
-        }
-        confirmText="Delete Customer"
-        cancelText="Cancel"
-        variant="danger"
-        loading={isDeleting}
-      />
+          </div>
+        </>
+      )}
 
+      {/* Customer Details Modal */}
       <CustomerDetailsModal
         open={Boolean(selectedCustomer)}
         customer={selectedCustomer}
-        onClose={handleCloseCustomerDetails}
-        onEdit={handleEditFromModal}
+        onClose={() => setSelectedCustomer(null)}
+        onEdit={(c) => handleEdit(c)}
       />
-    </>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={Boolean(customerToDelete)}
+        title="Delete Customer?"
+        message={`Are you sure you want to delete ${customerToDelete?.name} (${customerToDelete?.customerCode})?`}
+        confirmLabel="Delete Customer"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setCustomerToDelete(null)}
+      />
+    </div>
   );
 }
