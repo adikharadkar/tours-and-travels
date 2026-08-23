@@ -8,6 +8,10 @@ const navigation = [
     path: "/dashboard",
   },
   {
+    name: "Trips",
+    path: "/trips",
+  },
+  {
     name: "Vehicles",
     path: "/vehicles",
   },

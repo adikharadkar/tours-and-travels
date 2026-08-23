@@ -10,6 +10,8 @@ import VehicleList from "./pages/vehicles/VehicleList";
 import VehicleForm from "./pages/vehicles/VehicleForm";
 import DriverList from "./pages/drivers/DriverList";
 import DriverForm from "./pages/drivers/DriverForm";
+import TripList from "./pages/trips/TripList";
+import TripForm from "./pages/trips/TripForm";
 
 function App() {
   return (
@@ -19,11 +21,9 @@ function App() {
 
         <Route path="/dashboard" element={<Dashboard />} />
 
-        <Route path="/settings" element={<Settings />} />
-
-        <Route path="/customers" element={<CustomerList />} />
-        <Route path="/customers/new" element={<CustomerForm />} />
-        <Route path="/customers/:customerId/edit" element={<CustomerForm />} />
+        <Route path="/trips" element={<TripList />} />
+        <Route path="/trips/new" element={<TripForm />} />
+        <Route path="/trips/:tripId/edit" element={<TripForm />} />
 
         <Route path="/vehicles" element={<VehicleList />} />
         <Route path="/vehicles/new" element={<VehicleForm />} />
@@ -32,6 +32,12 @@ function App() {
         <Route path="/drivers" element={<DriverList />} />
         <Route path="/drivers/new" element={<DriverForm />} />
         <Route path="/drivers/:driverId/edit" element={<DriverForm />} />
+
+        <Route path="/customers" element={<CustomerList />} />
+        <Route path="/customers/new" element={<CustomerForm />} />
+        <Route path="/customers/:customerId/edit" element={<CustomerForm />} />
+
+        <Route path="/settings" element={<Settings />} />
 
         <Route path="*" element={<NotFound />} />
       </Route>

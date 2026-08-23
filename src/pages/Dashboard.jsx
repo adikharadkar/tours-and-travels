@@ -11,10 +11,12 @@ import Card, {
 import { getVehicles } from "../services/vehicleService";
 import { getCustomers } from "../services/customerService";
 import { getDrivers } from "../services/driverService";
+import { getTrips } from "../services/tripService";
 import { getVehicleDocumentStatus } from "../utils/vehicleDocumentStatus";
 import { getDriverLicenseStatus } from "../utils/driverLicenseStatus";
 import { VEHICLE_TYPE_LABELS } from "../constants/vehicles";
 import { DRIVER_TYPE_LABELS, PREFIX_LABELS } from "../constants/drivers";
+import { TripStatusBadge } from "../components/trips/TripStatusBadge";
 
 const STATUS_CLASSES = {
   active: "bg-success/10 text-success border border-success/20",
@@ -43,16 +45,23 @@ export default function Dashboard() {
   const [vehicles, setVehicles] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [trips, setTrips] = useState([]);
 
   useEffect(() => {
     try {
       setVehicles(getVehicles());
       setCustomers(getCustomers());
       setDrivers(getDrivers());
+      setTrips(getTrips());
     } catch (err) {
       console.error("Failed to load dashboard metrics:", err);
     }
   }, []);
+
+  const totalTrips = trips.length;
+  const activeTrips = trips.filter(
+    (t) => t.status === "confirmed" || t.status === "in_progress",
+  ).length;
 
   const totalVehicles = vehicles.length;
   const activeVehicles = vehicles.filter((v) => v.isActive !== false).length;
@@ -100,9 +109,6 @@ export default function Dashboard() {
       .length;
 
   const totalCustomers = customers.length;
-  const companyCustomers = customers.filter(
-    (c) => c.customerType === "company",
-  ).length;
 
   return (
     <div className="space-y-6 pb-12">
@@ -113,18 +119,25 @@ export default function Dashboard() {
             Fleet & Operations Dashboard
           </h1>
           <p className="text-sm text-muted">
-            Live overview of fleet capacity, driver licenses, compliance
-            expirations, and client accounts.
+            Live overview of active bookings, fleet availability, driver
+            licenses, and customer accounts.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
             type="button"
-            variant="secondary"
-            onClick={() => navigate("/customers/new")}
+            variant="primary"
+            onClick={() => navigate("/trips/new")}
           >
-            + New Customer
+            + New Booking
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate("/vehicles/new")}
+          >
+            + New Vehicle
           </Button>
           <Button
             type="button"
@@ -135,16 +148,37 @@ export default function Dashboard() {
           </Button>
           <Button
             type="button"
-            variant="primary"
-            onClick={() => navigate("/vehicles/new")}
+            variant="secondary"
+            onClick={() => navigate("/customers/new")}
           >
-            + New Vehicle
+            + New Customer
           </Button>
         </div>
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Trips / Bookings */}
+        <Card
+          className="cursor-pointer hover:border-primary/50 transition-colors"
+          onClick={() => navigate("/trips")}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted">
+                ACTIVE TRIPS
+              </span>
+              <span className="text-lg">🗺️</span>
+            </div>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">
+              {activeTrips}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              {totalTrips} total scheduled bookings
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Vehicles */}
         <Card
           className="cursor-pointer hover:border-primary/50 transition-colors"
@@ -208,28 +242,78 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
-
-        {/* Customers */}
-        <Card
-          className="cursor-pointer hover:border-primary/50 transition-colors"
-          onClick={() => navigate("/customers")}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted">
-                CUSTOMERS
-              </span>
-              <span className="text-lg">👥</span>
-            </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">
-              {totalCustomers}
-            </p>
-            <p className="mt-1 text-xs text-muted">
-              {companyCustomers} corporate clients
-            </p>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Active / Recent Trips Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div>
+            <CardTitle className="text-base">
+              Recent & Upcoming Bookings
+            </CardTitle>
+            <CardDescription>
+              Scheduled journeys, routes, and current trip statuses
+            </CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/trips")}
+            className="text-xs"
+          >
+            View All Trips ({totalTrips}) →
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {trips.length === 0 ? (
+            <div className="py-8 text-center text-xs text-muted">
+              No trips recorded yet. Click &quot;+ New Booking&quot; to create
+              your first trip.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {trips.slice(0, 4).map((trip) => {
+                const cust = customers.find((c) => c.id === trip.customerId);
+                const veh = vehicles.find((v) => v.id === trip.vehicleId);
+                const drv = drivers.find((d) => d.id === trip.driverId);
+
+                return (
+                  <div
+                    key={trip.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-2 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-foreground">
+                          {trip.tripCode}
+                        </span>
+                        <span className="text-muted">·</span>
+                        <span className="font-semibold text-foreground truncate">
+                          {cust?.name || "Customer"}
+                        </span>
+                      </div>
+                      <p className="text-muted mt-0.5 truncate">
+                        {trip.pickupLocation} → {trip.dropLocation} ·{" "}
+                        <span className="font-medium text-foreground">
+                          {veh ? veh.vehicleNumber : "Vehicle"}
+                        </span>{" "}
+                        ({drv ? drv.name : "Driver"})
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="font-mono font-bold text-foreground">
+                        ₹{Number(trip.totalAmount || 0).toLocaleString("en-IN")}
+                      </span>
+                      <TripStatusBadge status={trip.status} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Compliance Warnings Section */}
       {(vehicleComplianceAlerts.length > 0 ||
