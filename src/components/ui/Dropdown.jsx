@@ -109,8 +109,8 @@ export default function Dropdown({
           role="menu"
           className={[
             "absolute z-50 min-w-48",
-            "rounded-md border border-border",
-            "bg-surface p-1 shadow-lg",
+            "rounded-xl border border-slate-200 dark:border-[#262837]",
+            "bg-white dark:bg-[#161822] p-1.5 shadow-xl shadow-slate-900/10 dark:shadow-black/50",
             alignmentClass,
             placementClass,
           ].join(" ")}
@@ -136,12 +136,12 @@ export function DropdownItem({
       disabled={disabled}
       onClick={onClick}
       className={[
-        "flex w-full items-center rounded-sm px-3 py-2",
-        "text-left text-sm text-foreground",
-        "transition-colors",
-        "hover:bg-background",
+        "flex w-full items-center rounded-lg px-3 py-2 text-xs font-medium",
+        "text-left text-slate-700 dark:text-slate-200",
+        "transition-colors cursor-pointer",
+        "hover:bg-slate-100 dark:hover:bg-[#202330] hover:text-slate-900 dark:hover:text-white",
         "focus-visible:outline-none",
-        "focus-visible:ring-2 focus-visible:ring-focus",
+        "focus-visible:ring-2 focus-visible:ring-primary/40",
         "disabled:pointer-events-none disabled:opacity-50",
         className,
       ].join(" ")}
