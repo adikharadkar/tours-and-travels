@@ -15,6 +15,6 @@ describe("App", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Tours & Travels")).toBeInTheDocument();
+    expect(screen.getByText("FleetCore")).toBeInTheDocument();
   });
 });
