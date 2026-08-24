@@ -872,6 +872,12 @@ export default function CustomerList() {
         customer={selectedCustomer}
         onClose={() => setSelectedCustomer(null)}
         onEdit={(c) => handleEdit(c)}
+        onCreateTrip={(c) => {
+          setSelectedCustomer(null);
+          navigate("/trips/new", {
+            state: { customerId: c.id, customerName: c.name },
+          });
+        }}
       />
 
       {/* Delete Confirmation Dialog */}
