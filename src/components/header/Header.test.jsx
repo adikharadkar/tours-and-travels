@@ -1,180 +1,442 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+
 import Header from "./Header";
-import { ThemeProvider } from "../../contexts/ThemeContext";
+
 import { getHeaderConfig } from "../../config/headerConfig";
 
-function renderHeader(initialRoute = "/dashboard") {
+vi.mock("../../config/headerConfig", () => ({
+  getHeaderConfig: vi.fn(),
+}));
+
+vi.mock("./HeaderContext", () => ({
+  default: ({ title, breadcrumbs = [] }) => (
+    <div data-testid="header-context">
+      <span data-testid="header-title">{title}</span>
+
+      <span data-testid="header-breadcrumb-count">{breadcrumbs.length}</span>
+    </div>
+  ),
+}));
+
+vi.mock("./HeaderSearch", () => ({
+  default: () => <div data-testid="header-search">Header Search</div>,
+}));
+
+vi.mock("./HeaderAction", () => ({
+  default: ({ action }) =>
+    action ? (
+      <button type="button" data-testid="header-action">
+        {action.label}
+      </button>
+    ) : null,
+}));
+
+vi.mock("./HeaderThemeToggle", () => ({
+  default: () => (
+    <button type="button" data-testid="header-theme-toggle">
+      Theme Toggle
+    </button>
+  ),
+}));
+
+vi.mock("./HeaderNotifications", () => ({
+  default: () => <div data-testid="header-notifications">Notifications</div>,
+}));
+
+vi.mock("./HeaderUser", () => ({
+  default: () => <div data-testid="header-user">User</div>,
+}));
+
+const defaultConfig = {
+  title: "Customers",
+  breadcrumbs: [
+    {
+      label: "Masters",
+      path: "/customers",
+    },
+    {
+      label: "Customers",
+    },
+  ],
+  primaryAction: {
+    label: "New Customer",
+    path: "/customers/new",
+  },
+};
+
+const renderHeader = (initialEntries = ["/customers"], props = {}) => {
   return render(
-    <ThemeProvider>
-      <MemoryRouter initialEntries={[initialRoute]}>
-        <Header />
-      </MemoryRouter>
-    </ThemeProvider>,
+    <MemoryRouter initialEntries={initialEntries}>
+      <Header {...props} />
+    </MemoryRouter>,
   );
-}
+};
 
-describe("Header Component", () => {
-  it("renders correctly for Dashboard route", () => {
-    renderHeader("/dashboard");
+describe("Header", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
 
-    expect(
-      screen.getByRole("heading", { name: "Dashboard" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Overview")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "New Dispatch" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByPlaceholderText("Search FleetCore..."),
-    ).toBeInTheDocument();
+    getHeaderConfig.mockReturnValue(defaultConfig);
   });
 
-  it("renders dynamic action and breadcrumbs for Customers route", () => {
-    renderHeader("/customers");
+  it("renders the header element", () => {
+    renderHeader();
 
-    expect(
-      screen.getByRole("heading", { name: "Customers" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Masters")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "New Customer" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
   });
 
-  it("renders dynamic action and breadcrumbs for Vehicles route", () => {
-    renderHeader("/vehicles");
+  it("gets the header configuration using the current pathname and search", () => {
+    renderHeader(["/customers?status=active"]);
 
-    expect(
-      screen.getByRole("heading", { name: "Vehicles" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Masters")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "New Vehicle" }),
-    ).toBeInTheDocument();
+    expect(getHeaderConfig).toHaveBeenCalledTimes(1);
+
+    expect(getHeaderConfig).toHaveBeenCalledWith(
+      "/customers",
+      "?status=active",
+    );
   });
 
-  it("renders dynamic action and breadcrumbs for Drivers route", () => {
-    renderHeader("/drivers");
+  it("renders the configured page title through HeaderContext", () => {
+    renderHeader();
 
-    expect(
-      screen.getByRole("heading", { name: "Drivers" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Masters")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "New Driver" }),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("header-title")).toHaveTextContent("Customers");
   });
 
-  it("renders dynamic action and breadcrumbs for Trips route", () => {
-    renderHeader("/trips");
+  it("passes the configured breadcrumbs to HeaderContext", () => {
+    renderHeader();
 
-    expect(
-      screen.getByRole("heading", { name: "Trips / Bookings" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Operations")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "New Trip" }),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("header-breadcrumb-count")).toHaveTextContent(
+      "2",
+    );
   });
 
-  it("renders Invoices section when on /trips?tab=invoices", () => {
-    renderHeader("/trips?tab=invoices");
+  it("renders HeaderSearch", () => {
+    renderHeader();
 
-    expect(
-      screen.getByRole("heading", { name: "Invoices" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Finance")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "New Invoice" }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByTestId("header-search")).toHaveLength(2);
   });
 
-  it("renders Payments section when on /trips?tab=payments", () => {
-    renderHeader("/trips?tab=payments");
+  it("renders HeaderUser for both mobile and desktop layouts", () => {
+    renderHeader();
 
-    expect(
-      screen.getByRole("heading", { name: "Payments" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Finance")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Record Payment" }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByTestId("header-user")).toHaveLength(2);
   });
 
-  it("renders Settings with no create action", () => {
-    renderHeader("/settings");
+  it("renders HeaderThemeToggle in the desktop layout", () => {
+    renderHeader();
 
-    expect(
-      screen.getByRole("heading", { name: "Settings" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("System")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /New /i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("header-theme-toggle")).toBeInTheDocument();
   });
 
-  it("renders deeper route breadcrumbs with no create button (e.g. /customers/new)", () => {
-    renderHeader("/customers/new");
+  it("renders HeaderNotifications in the desktop layout", () => {
+    renderHeader();
 
-    expect(
-      screen.getByRole("heading", { name: "Add Customer" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Masters")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "New Customer" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("header-notifications")).toBeInTheDocument();
   });
 
-  it("toggles theme when theme button is clicked", async () => {
-    const user = userEvent.setup();
-    renderHeader("/dashboard");
+  it("renders the contextual action when configured", () => {
+    renderHeader();
 
-    const themeButton = screen.getByRole("button", {
-      name: /Switch to (dark|light) mode/i,
+    expect(screen.getByTestId("header-action")).toHaveTextContent(
+      "New Customer",
+    );
+  });
+
+  it("does not render the contextual action when there is no primary action", () => {
+    getHeaderConfig.mockReturnValue({
+      ...defaultConfig,
+      primaryAction: null,
     });
-    expect(themeButton).toBeInTheDocument();
 
-    await user.click(themeButton);
-    expect(document.documentElement).toHaveAttribute("data-theme");
+    renderHeader();
+
+    expect(screen.queryByTestId("header-action")).not.toBeInTheDocument();
   });
 
-  it("opens notifications popover when notification bell is clicked", async () => {
-    const user = userEvent.setup();
-    renderHeader("/dashboard");
+  it("does not render the contextual action when primaryAction is undefined", () => {
+    getHeaderConfig.mockReturnValue({
+      title: "Reports",
+      breadcrumbs: [
+        {
+          label: "Insights",
+        },
+        {
+          label: "Reports",
+        },
+      ],
+    });
 
-    const notifButton = screen.getByRole("button", { name: "Notifications" });
-    expect(notifButton).toBeInTheDocument();
+    renderHeader();
 
-    await user.click(notifButton);
+    expect(screen.queryByTestId("header-action")).not.toBeInTheDocument();
+  });
+
+  it("renders a route-specific action for vehicles", () => {
+    getHeaderConfig.mockReturnValue({
+      title: "Vehicles",
+      breadcrumbs: [
+        {
+          label: "Masters",
+        },
+        {
+          label: "Vehicles",
+        },
+      ],
+      primaryAction: {
+        label: "New Vehicle",
+        path: "/vehicles/new",
+      },
+    });
+
+    renderHeader(["/vehicles"]);
+
+    expect(screen.getByTestId("header-action")).toHaveTextContent(
+      "New Vehicle",
+    );
+  });
+
+  it("renders a route-specific action for drivers", () => {
+    getHeaderConfig.mockReturnValue({
+      title: "Drivers",
+      breadcrumbs: [
+        {
+          label: "Masters",
+        },
+        {
+          label: "Drivers",
+        },
+      ],
+      primaryAction: {
+        label: "New Driver",
+        path: "/drivers/new",
+      },
+    });
+
+    renderHeader(["/drivers"]);
+
+    expect(screen.getByTestId("header-action")).toHaveTextContent("New Driver");
+  });
+
+  it("renders a route-specific action for trips", () => {
+    getHeaderConfig.mockReturnValue({
+      title: "Trips / Bookings",
+      breadcrumbs: [
+        {
+          label: "Operations",
+        },
+        {
+          label: "Trips / Bookings",
+        },
+      ],
+      primaryAction: {
+        label: "New Trip",
+        path: "/trips/new",
+      },
+    });
+
+    renderHeader(["/trips"]);
+
+    expect(screen.getByTestId("header-action")).toHaveTextContent("New Trip");
+  });
+
+  it("renders a route-specific action for invoices", () => {
+    getHeaderConfig.mockReturnValue({
+      title: "Invoices",
+      breadcrumbs: [
+        {
+          label: "Finance",
+        },
+        {
+          label: "Invoices",
+        },
+      ],
+      primaryAction: {
+        label: "New Invoice",
+        path: "/invoices/new",
+      },
+    });
+
+    renderHeader(["/invoices"]);
+
+    expect(screen.getByTestId("header-action")).toHaveTextContent(
+      "New Invoice",
+    );
+  });
+
+  it("renders a route-specific payment action", () => {
+    getHeaderConfig.mockReturnValue({
+      title: "Payments",
+      breadcrumbs: [
+        {
+          label: "Finance",
+        },
+        {
+          label: "Payments",
+        },
+      ],
+      primaryAction: {
+        label: "Record Payment",
+        path: "/payments/new",
+      },
+    });
+
+    renderHeader(["/payments"]);
+
+    expect(screen.getByTestId("header-action")).toHaveTextContent(
+      "Record Payment",
+    );
+  });
+
+  it("supports pages without a primary action", () => {
+    getHeaderConfig.mockReturnValue({
+      title: "Settings",
+      breadcrumbs: [
+        {
+          label: "System",
+        },
+        {
+          label: "Settings",
+        },
+      ],
+      primaryAction: null,
+    });
+
+    renderHeader(["/settings"]);
+
+    expect(screen.getByTestId("header-title")).toHaveTextContent("Settings");
+
+    expect(screen.queryByTestId("header-action")).not.toBeInTheDocument();
+
+    expect(screen.getByTestId("header-theme-toggle")).toBeInTheDocument();
+
+    expect(screen.getByTestId("header-notifications")).toBeInTheDocument();
+
+    expect(screen.getAllByTestId("header-user")).toHaveLength(2);
+  });
+
+  it("calls onOpenMobile when the mobile navigation button is clicked", () => {
+    const onOpenMobile = vi.fn();
+
+    renderHeader(["/customers"], {
+      onOpenMobile,
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Open navigation",
+      }),
+    );
+
+    expect(onOpenMobile).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the mobile FleetCore brand link", () => {
+    renderHeader();
+
     expect(
-      screen.getByRole("region", { name: "Notifications panel" }),
+      screen.getByRole("link", {
+        name: "FleetCore",
+      }),
+    ).toHaveAttribute("href", "/dashboard");
+  });
+
+  it("renders the mobile navigation button", () => {
+    renderHeader();
+
+    expect(
+      screen.getByRole("button", {
+        name: "Open navigation",
+      }),
     ).toBeInTheDocument();
   });
-});
 
-describe("headerConfig resolver", () => {
-  it("resolves route configs properly", () => {
-    const custConfig = getHeaderConfig("/customers");
-    expect(custConfig.title).toBe("Customers");
-    expect(custConfig.section).toBe("Masters");
-    expect(custConfig.primaryAction?.label).toBe("New Customer");
+  it("renders search in the mobile and desktop header zones", () => {
+    renderHeader();
 
-    const vehConfig = getHeaderConfig("/vehicles");
-    expect(vehConfig.title).toBe("Vehicles");
-    expect(vehConfig.section).toBe("Masters");
-    expect(vehConfig.primaryAction?.label).toBe("New Vehicle");
+    expect(screen.getAllByTestId("header-search")).toHaveLength(2);
+  });
 
-    const drvConfig = getHeaderConfig("/drivers");
-    expect(drvConfig.title).toBe("Drivers");
-    expect(drvConfig.section).toBe("Masters");
-    expect(drvConfig.primaryAction?.label).toBe("New Driver");
+  it("does not call onOpenMobile during initial render", () => {
+    const onOpenMobile = vi.fn();
 
-    const tripConfig = getHeaderConfig("/trips");
-    expect(tripConfig.title).toBe("Trips / Bookings");
-    expect(tripConfig.section).toBe("Operations");
-    expect(tripConfig.primaryAction?.label).toBe("New Trip");
+    renderHeader(["/customers"], {
+      onOpenMobile,
+    });
+
+    expect(onOpenMobile).not.toHaveBeenCalled();
+  });
+
+  it("works without an onOpenMobile callback", () => {
+    expect(() => {
+      renderHeader();
+    }).not.toThrow();
+  });
+
+  it("renders the configured notification area once", () => {
+    renderHeader();
+
+    expect(screen.getAllByTestId("header-notifications")).toHaveLength(1);
+  });
+
+  it("renders the configured theme toggle once", () => {
+    renderHeader();
+
+    expect(screen.getAllByTestId("header-theme-toggle")).toHaveLength(1);
+  });
+
+  it("updates the displayed title when the route changes", () => {
+    const { rerender } = renderHeader(["/customers"]);
+
+    expect(screen.getByTestId("header-title")).toHaveTextContent("Customers");
+
+    getHeaderConfig.mockReturnValue({
+      title: "Vehicles",
+      breadcrumbs: [
+        {
+          label: "Masters",
+        },
+        {
+          label: "Vehicles",
+        },
+      ],
+      primaryAction: {
+        label: "New Vehicle",
+        path: "/vehicles/new",
+      },
+    });
+
+    rerender(
+      <MemoryRouter initialEntries={["/vehicles"]}>
+        <Header />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("header-title")).toHaveTextContent("Vehicles");
+  });
+
+  it("supports a header configuration with no breadcrumbs", () => {
+    getHeaderConfig.mockReturnValue({
+      title: "Dashboard",
+      breadcrumbs: [],
+      primaryAction: null,
+    });
+
+    renderHeader(["/dashboard"]);
+
+    expect(screen.getByTestId("header-title")).toHaveTextContent("Dashboard");
+
+    expect(screen.getByTestId("header-breadcrumb-count")).toHaveTextContent(
+      "0",
+    );
+  });
+
+  it("passes the current route search to getHeaderConfig", () => {
+    getHeaderConfig.mockReturnValue(defaultConfig);
+
+    renderHeader(["/trips?view=calendar"]);
+
+    expect(getHeaderConfig).toHaveBeenCalledWith("/trips", "?view=calendar");
   });
 });
