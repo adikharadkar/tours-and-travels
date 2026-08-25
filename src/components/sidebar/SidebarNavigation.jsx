@@ -69,7 +69,7 @@ export default function SidebarNavigation({
       <SidebarSection title="Finance" isCollapsed={isCollapsed}>
         <SidebarNavItem
           name="Invoices"
-          path="/trips?tab=invoices"
+          path="/invoices"
           icon="receipt_long"
           isCollapsed={isCollapsed}
           onClick={onItemClick}

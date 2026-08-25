@@ -189,7 +189,7 @@ describe("SidebarNavigation", () => {
       screen.getByRole("link", {
         name: /Invoices/,
       }),
-    ).toHaveAttribute("href", "/trips?tab=invoices");
+    ).toHaveAttribute("href", "/invoices");
 
     expect(
       screen.getByRole("link", {

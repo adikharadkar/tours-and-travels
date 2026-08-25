@@ -12,6 +12,7 @@ import DriverList from "./pages/drivers/DriverList";
 import DriverForm from "./pages/drivers/DriverForm";
 import TripList from "./pages/trips/TripList";
 import TripForm from "./pages/trips/TripForm";
+import InvoiceList from "./pages/invoices/InvoiceList";
 
 function App() {
   return (
@@ -20,6 +21,8 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
         <Route path="/dashboard" element={<Dashboard />} />
+
+        <Route path="/invoices" element={<InvoiceList />} />
 
         <Route path="/trips" element={<TripList />} />
         <Route path="/trips/new" element={<TripForm />} />
