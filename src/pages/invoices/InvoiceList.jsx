@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 
 import InvoiceOverview from "../../components/invoices/InvoiceOverview";
 import InvoiceToolbar from "../../components/invoices/InvoiceToolbar";
@@ -28,6 +29,8 @@ import { getTrips } from "../../services/tripService";
 const ITEMS_PER_PAGE = 8;
 
 export default function InvoiceList() {
+  const navigate = useNavigate();
+
   // Primary data state
   const [invoices, setInvoices] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -467,7 +470,7 @@ export default function InvoiceList() {
             </p>
           </div>
 
-          {/* Header Actions: Export + + New Invoice */}
+          {/* Header Actions: Export + Generate from Trip + + New Invoice */}
           <div className="flex items-center gap-2.5">
             <button
               type="button"
@@ -478,6 +481,17 @@ export default function InvoiceList() {
                 file_download
               </span>
               <span>Export</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/invoices/generate")}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-md border border-slate-200 dark:border-[#27272a] bg-white dark:bg-[#121314] text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-[#1a1b1d] transition-all cursor-pointer shadow-2xs"
+            >
+              <span className="material-symbols-outlined text-[16px] text-primary">
+                bolt
+              </span>
+              <span>Generate from Trip</span>
             </button>
 
             <button

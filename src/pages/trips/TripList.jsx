@@ -832,6 +832,22 @@ export default function TripList() {
                                   </Button>
                                 )}
 
+                              {trip.status === "completed" && (
+                                <Button
+                                  type="button"
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() =>
+                                    navigate(
+                                      `/invoices/generate?tripId=${trip.id}`,
+                                    )
+                                  }
+                                  className="text-xs px-2 py-1 font-semibold"
+                                >
+                                  Generate Invoice
+                                </Button>
+                              )}
+
                               {trip.status === "draft" && (
                                 <Button
                                   type="button"
@@ -953,6 +969,9 @@ export default function TripList() {
                     }}
                     onCancel={(t) => setTripToCancel(t)}
                     onDelete={(t) => setTripToDelete(t)}
+                    onCreateInvoice={(t) =>
+                      navigate(`/invoices/generate?tripId=${t.id}`)
+                    }
                   />
                 ))}
               </div>
@@ -993,11 +1012,8 @@ export default function TripList() {
           }}
           onCancel={(t) => setTripToCancel(t)}
           onCreateInvoice={(t) => {
-            setToast({
-              id: Date.now(),
-              message: `Invoice preparation for ${t.tripCode} triggered. Invoice module is ready to ingest this record.`,
-              variant: "success",
-            });
+            setSelectedTrip(null);
+            navigate(`/invoices/generate?tripId=${t.id}`);
           }}
         />
       )}

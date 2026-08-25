@@ -33,6 +33,7 @@ export default function TripCard({
   onComplete,
   onCancel,
   onDelete,
+  onCreateInvoice,
   highlighted = false,
 }) {
   const tripTypeLabel =
@@ -139,6 +140,18 @@ export default function TripCard({
               className="text-xs"
             >
               Edit
+            </Button>
+          )}
+
+          {trip.status === "completed" && onCreateInvoice && (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => onCreateInvoice(trip)}
+              className="text-xs"
+            >
+              Generate Invoice
             </Button>
           )}
 

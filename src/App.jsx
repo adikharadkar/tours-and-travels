@@ -13,6 +13,7 @@ import DriverForm from "./pages/drivers/DriverForm";
 import TripList from "./pages/trips/TripList";
 import TripForm from "./pages/trips/TripForm";
 import InvoiceList from "./pages/invoices/InvoiceList";
+import GenerateInvoice from "./pages/invoices/GenerateInvoice";
 
 function App() {
   return (
@@ -23,6 +24,11 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
 
         <Route path="/invoices" element={<InvoiceList />} />
+        <Route path="/invoices/generate" element={<GenerateInvoice />} />
+        <Route
+          path="/invoices/generate/:tripId"
+          element={<GenerateInvoice />}
+        />
 
         <Route path="/trips" element={<TripList />} />
         <Route path="/trips/new" element={<TripForm />} />
