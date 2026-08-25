@@ -159,6 +159,8 @@ describe("InvoiceMobileCard", () => {
   it("does not trigger card click when Record Payment is clicked", () => {
     const props = createProps();
 
+    render(<InvoiceMobileCard {...props} />);
+
     fireEvent.click(
       screen.getByRole("button", {
         name: /Record Payment/,
@@ -172,6 +174,8 @@ describe("InvoiceMobileCard", () => {
 
   it("does not trigger card click when View is clicked", () => {
     const props = createProps();
+
+    render(<InvoiceMobileCard {...props} />);
 
     fireEvent.click(
       screen.getByRole("button", {

@@ -4,6 +4,8 @@ import InvoiceOverview from "../../components/invoices/InvoiceOverview";
 import InvoiceToolbar from "../../components/invoices/InvoiceToolbar";
 import InvoiceTable from "../../components/invoices/InvoiceTable";
 import InvoiceMobileCard from "../../components/invoices/InvoiceMobileCard";
+import InvoiceMobileSkeleton from "../../components/invoices/InvoiceMobileSkeleton";
+import InvoiceMobileFilterDrawer from "../../components/invoices/InvoiceMobileFilterDrawer";
 import InvoiceDetailsModal from "../../components/invoices/InvoiceDetailsModal";
 import RecordPaymentModal from "../../components/invoices/RecordPaymentModal";
 import NewInvoiceModal from "../../components/invoices/NewInvoiceModal";
@@ -42,6 +44,9 @@ export default function InvoiceList() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [customerFilter, setCustomerFilter] = useState("all");
+
+  // Mobile Filter Drawer state
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   // Sorting and pagination state
   const [sortField, setSortField] = useState("issueDate");
@@ -88,12 +93,15 @@ export default function InvoiceList() {
   // Active filters count
   const activeFilterCount = useMemo(() => {
     let count = 0;
+    if (documentType !== "all") count++;
     if (paymentStatus !== "all") count++;
     if (documentStatus !== "all") count++;
     if (customerFilter !== "all") count++;
+    if (datePreset !== "all" && datePreset !== "last_30_days") count++;
     if (datePreset === "custom" && (customStartDate || customEndDate)) count++;
     return count;
   }, [
+    documentType,
     paymentStatus,
     documentStatus,
     customerFilter,
@@ -421,8 +429,20 @@ export default function InvoiceList() {
     }
   };
 
+  // Human-readable count label for mobile (e.g., "14 Invoices" or "14 Results")
+  const mobileCountLabel = useMemo(() => {
+    const count = filteredInvoices.length;
+    if (activeFilterCount > 0 || searchQuery) {
+      return `${count} ${count === 1 ? "Result" : "Results"}`;
+    }
+    if (paymentStatus === "overdue") {
+      return `${count} ${count === 1 ? "Overdue" : "Overdue"}`;
+    }
+    return `${count} ${count === 1 ? "Invoice" : "Invoices"}`;
+  }, [filteredInvoices.length, activeFilterCount, searchQuery, paymentStatus]);
+
   return (
-    <div className="p-4 sm:p-6 md:p-8 max-w-[1400px] mx-auto w-full">
+    <div className="p-3 sm:p-5 md:p-8 max-w-[1400px] mx-auto w-full relative">
       {/* Toast message */}
       {toastMessage && (
         <Toast
@@ -432,90 +452,241 @@ export default function InvoiceList() {
         />
       )}
 
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-zinc-100 font-sans">
-            Invoices
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Create, manage and track customer invoices and collections.
-          </p>
+      {/* ======================================================== */}
+      {/* DESKTOP VIEW HEADER & CONTROLS (hidden on mobile/tablet) */}
+      {/* ======================================================== */}
+      <div className="hidden lg:block">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-zinc-100 font-sans">
+              Invoices
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+              Create, manage and track customer invoices and collections.
+            </p>
+          </div>
+
+          {/* Header Actions: Export + + New Invoice */}
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setIsExportOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-md border border-slate-200 dark:border-[#27272a] bg-white dark:bg-[#121314] text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-[#1a1b1d] transition-all cursor-pointer shadow-2xs"
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                file_download
+              </span>
+              <span>Export</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsNewInvoiceOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-md bg-[#6b38d4] hover:bg-[#5b2cc2] dark:bg-[#a078ff] dark:hover:bg-[#8e5efc] text-white dark:text-[#1e004d] shadow-sm transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[17px] font-bold">
+                add
+              </span>
+              <span>+ New Invoice</span>
+            </button>
+          </div>
         </div>
 
-        {/* Header Actions: Export + + New Invoice */}
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => setIsExportOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-md border border-slate-200 dark:border-[#27272a] bg-white dark:bg-[#121314] text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-[#1a1b1d] transition-all cursor-pointer shadow-2xs"
-          >
-            <span className="material-symbols-outlined text-[16px]">
-              file_download
-            </span>
-            <span>Export</span>
-          </button>
+        {/* 1. Overview KPIs */}
+        <InvoiceOverview kpis={kpis} isLoading={isLoading} />
 
-          <button
-            type="button"
-            onClick={() => setIsNewInvoiceOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-md bg-[#6b38d4] hover:bg-[#5b2cc2] dark:bg-[#a078ff] dark:hover:bg-[#8e5efc] text-white dark:text-[#1e004d] shadow-sm transition-all cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[17px] font-bold">
-              add
-            </span>
-            <span>+ New Invoice</span>
-          </button>
-        </div>
+        {/* 2. Desktop Search and Filter Toolbar */}
+        <InvoiceToolbar
+          documentType={documentType}
+          onDocumentTypeChange={(type) => {
+            setDocumentType(type);
+            setCurrentPage(1);
+          }}
+          searchQuery={searchQuery}
+          onSearchChange={(q) => {
+            setSearchQuery(q);
+            setCurrentPage(1);
+          }}
+          paymentStatus={paymentStatus}
+          onPaymentStatusChange={(s) => {
+            setPaymentStatus(s);
+            setCurrentPage(1);
+          }}
+          documentStatus={documentStatus}
+          onDocumentStatusChange={(s) => {
+            setDocumentStatus(s);
+            setCurrentPage(1);
+          }}
+          datePreset={datePreset}
+          onDatePresetChange={(d) => {
+            setDatePreset(d);
+            setCurrentPage(1);
+          }}
+          customStartDate={customStartDate}
+          onCustomStartDateChange={setCustomStartDate}
+          customEndDate={customEndDate}
+          onCustomEndDateChange={setCustomEndDate}
+          customerFilter={customerFilter}
+          onCustomerFilterChange={(c) => {
+            setCustomerFilter(c);
+            setCurrentPage(1);
+          }}
+          customers={customers}
+          onResetFilters={handleResetFilters}
+          activeFilterCount={activeFilterCount}
+        />
       </div>
 
-      {/* 1. Overview KPIs (Inspired by Stitch design) */}
-      <InvoiceOverview kpis={kpis} isLoading={isLoading} />
+      {/* ======================================================== */}
+      {/* MOBILE EXPERIENCE (lg:hidden) - STITCH DESIGN SYSTEM       */}
+      {/* ======================================================== */}
+      <div className="block lg:hidden space-y-4 mb-4">
+        {/* Mobile Search + Filter Row (Stitch style) */}
+        <div className="flex items-center gap-2">
+          {/* Search input */}
+          <div className="relative flex-1">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-zinc-500 pointer-events-none">
+              search
+            </span>
+            <input
+              type="text"
+              placeholder="Search invoices..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-9 pr-8 py-2.5 text-xs rounded-lg bg-white dark:bg-[#121314] border border-slate-200 dark:border-[#27272a] text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all shadow-2xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setCurrentPage(1);
+                }}
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">
+                  close
+                </span>
+              </button>
+            )}
+          </div>
 
-      {/* 2. Search and Filter Toolbar */}
-      <InvoiceToolbar
-        documentType={documentType}
-        onDocumentTypeChange={(type) => {
-          setDocumentType(type);
-          setCurrentPage(1);
-        }}
-        searchQuery={searchQuery}
-        onSearchChange={(q) => {
-          setSearchQuery(q);
-          setCurrentPage(1);
-        }}
-        paymentStatus={paymentStatus}
-        onPaymentStatusChange={(s) => {
-          setPaymentStatus(s);
-          setCurrentPage(1);
-        }}
-        documentStatus={documentStatus}
-        onDocumentStatusChange={(s) => {
-          setDocumentStatus(s);
-          setCurrentPage(1);
-        }}
-        datePreset={datePreset}
-        onDatePresetChange={(d) => {
-          setDatePreset(d);
-          setCurrentPage(1);
-        }}
-        customStartDate={customStartDate}
-        onCustomStartDateChange={setCustomStartDate}
-        customEndDate={customEndDate}
-        onCustomEndDateChange={setCustomEndDate}
-        customerFilter={customerFilter}
-        onCustomerFilterChange={(c) => {
-          setCustomerFilter(c);
-          setCurrentPage(1);
-        }}
-        customers={customers}
-        onResetFilters={handleResetFilters}
-        activeFilterCount={activeFilterCount}
-      />
+          {/* Filter Button */}
+          <button
+            type="button"
+            onClick={() => setIsMobileFilterOpen(true)}
+            aria-label="Filter invoices"
+            className={[
+              "flex items-center justify-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer shadow-2xs shrink-0",
+              activeFilterCount > 0
+                ? "bg-indigo-50 dark:bg-[#1e1730] border-indigo-300 dark:border-[#a078ff]/60 text-indigo-700 dark:text-[#d0bcff]"
+                : "bg-white dark:bg-[#121314] border-slate-200 dark:border-[#27272a] text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-[#1a1b1d]",
+            ].join(" ")}
+          >
+            <span className="material-symbols-outlined text-[17px]">tune</span>
+            <span>Filter</span>
+            {activeFilterCount > 0 && (
+              <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-[#a078ff]" />
+            )}
+          </button>
+        </div>
 
-      {/* 3. Error State */}
-      {error && (
-        <div className="rounded-md p-8 border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/20 text-center my-6">
+        {/* Mobile Title & Results Count Row (Stitch style: Invoices ... 14 Invoices) */}
+        <div className="flex items-center justify-between px-0.5">
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-100 font-sans">
+            Invoices
+          </h2>
+          <span className="font-mono text-xs font-semibold text-slate-500 dark:text-zinc-400 tracking-wider">
+            {mobileCountLabel}
+          </span>
+        </div>
+
+        {/* Active Filter Chips (if any) */}
+        {activeFilterCount > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            {documentType !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-[#191a1c] border border-slate-200 dark:border-[#27272a] text-slate-700 dark:text-zinc-300 whitespace-nowrap">
+                Type: {documentType.replace("_", " ")}
+                <button
+                  type="button"
+                  onClick={() => setDocumentType("all")}
+                  className="hover:text-rose-500 ml-0.5 cursor-pointer"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {paymentStatus !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-[#191a1c] border border-slate-200 dark:border-[#27272a] text-slate-700 dark:text-zinc-300 whitespace-nowrap">
+                Payment: {paymentStatus}
+                <button
+                  type="button"
+                  onClick={() => setPaymentStatus("all")}
+                  className="hover:text-rose-500 ml-0.5 cursor-pointer"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {documentStatus !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-[#191a1c] border border-slate-200 dark:border-[#27272a] text-slate-700 dark:text-zinc-300 whitespace-nowrap">
+                Doc: {documentStatus}
+                <button
+                  type="button"
+                  onClick={() => setDocumentStatus("all")}
+                  className="hover:text-rose-500 ml-0.5 cursor-pointer"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {customerFilter !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-[#191a1c] border border-slate-200 dark:border-[#27272a] text-slate-700 dark:text-zinc-300 whitespace-nowrap">
+                Customer filtered
+                <button
+                  type="button"
+                  onClick={() => setCustomerFilter("all")}
+                  className="hover:text-rose-500 ml-0.5 cursor-pointer"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="text-[11px] font-semibold text-indigo-600 dark:text-[#a078ff] hover:underline whitespace-nowrap px-1 cursor-pointer"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ======================================================== */}
+      {/* 3. LOADING & ERROR STATES (Shared across viewports)      */}
+      {/* ======================================================== */}
+      {isLoading && (
+        <>
+          {/* Mobile skeleton */}
+          <div className="block lg:hidden">
+            <InvoiceMobileSkeleton count={3} />
+          </div>
+          {/* Desktop skeleton placeholder */}
+          <div className="hidden lg:block space-y-3">
+            <div className="h-12 w-full bg-slate-100 dark:bg-zinc-800/60 rounded-md animate-pulse" />
+            <div className="h-64 w-full bg-slate-100 dark:bg-zinc-800/40 rounded-md animate-pulse" />
+          </div>
+        </>
+      )}
+
+      {error && !isLoading && (
+        <div className="rounded-xl p-8 border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/20 text-center my-6">
           <span className="material-symbols-outlined text-3xl text-rose-500 mb-2">
             error
           </span>
@@ -525,23 +696,25 @@ export default function InvoiceList() {
           <button
             type="button"
             onClick={loadData}
-            className="mt-3 px-3 py-1.5 text-xs font-semibold rounded bg-rose-600 text-white hover:bg-rose-700 cursor-pointer"
+            className="mt-3 px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700 cursor-pointer shadow-xs transition-colors"
           >
             Retry
           </button>
         </div>
       )}
 
-      {/* 4. Empty States */}
+      {/* ======================================================== */}
+      {/* 4. EMPTY STATES                                          */}
+      {/* ======================================================== */}
       {!isLoading && !error && filteredInvoices.length === 0 && (
-        <div className="rounded-md border border-dashed border-slate-300 dark:border-[#27272a] bg-white/50 dark:bg-[#121314]/50 p-12 text-center my-4">
+        <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#27272a] bg-white/50 dark:bg-[#121314]/50 p-8 sm:p-12 text-center my-4">
           <span className="material-symbols-outlined text-4xl text-slate-400 dark:text-zinc-600 mb-3 block">
             receipt_long
           </span>
 
           {invoices.length === 0 ? (
             <>
-              <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-200 mb-1">
+              <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-zinc-200 mb-1">
                 No invoices yet
               </h3>
               <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto mb-4">
@@ -550,14 +723,14 @@ export default function InvoiceList() {
               <button
                 type="button"
                 onClick={() => setIsNewInvoiceOpen(true)}
-                className="px-4 py-2 text-xs font-semibold rounded-md bg-[#6b38d4] dark:bg-[#a078ff] text-white dark:text-[#1e004d] cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 dark:bg-[#a078ff] text-white dark:text-[#1e004d] cursor-pointer shadow-sm"
               >
                 + New Invoice
               </button>
             </>
           ) : (
             <>
-              <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-200 mb-1">
+              <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-zinc-200 mb-1">
                 No matching invoices found
               </h3>
               <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto mb-4">
@@ -566,7 +739,7 @@ export default function InvoiceList() {
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-md border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 cursor-pointer shadow-2xs"
               >
                 Clear Filters
               </button>
@@ -575,7 +748,9 @@ export default function InvoiceList() {
         </div>
       )}
 
-      {/* 5. Desktop Table View */}
+      {/* ======================================================== */}
+      {/* 5. DESKTOP TABLE VIEW (hidden on mobile)                 */}
+      {/* ======================================================== */}
       {!isLoading && !error && filteredInvoices.length > 0 && (
         <div className="hidden lg:block">
           <InvoiceTable
@@ -589,7 +764,9 @@ export default function InvoiceList() {
         </div>
       )}
 
-      {/* 6. Tablet / Mobile Card List View */}
+      {/* ======================================================== */}
+      {/* 6. MOBILE CARD LIST VIEW (hidden on desktop)             */}
+      {/* ======================================================== */}
       {!isLoading && !error && filteredInvoices.length > 0 && (
         <div className="block lg:hidden space-y-3">
           {paginatedInvoices.map((inv) => (
@@ -598,14 +775,18 @@ export default function InvoiceList() {
               invoice={inv}
               onViewInvoice={handleViewInvoice}
               onRecordPayment={handleOpenRecordPayment}
+              onIssueInvoice={handleIssueInvoice}
+              onCancelInvoice={(invoice) => setInvoiceToCancel(invoice)}
             />
           ))}
         </div>
       )}
 
-      {/* 7. Pagination Footer */}
+      {/* ======================================================== */}
+      {/* 7. PAGINATION FOOTER                                     */}
+      {/* ======================================================== */}
       {!isLoading && !error && filteredInvoices.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-3 text-xs text-slate-500 dark:text-zinc-400 font-mono">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5 pt-3 border-t border-slate-100 dark:border-zinc-800/80 text-xs text-slate-500 dark:text-zinc-400 font-mono">
           <div>
             Showing {startIndex}–{endIndex} of {filteredInvoices.length}{" "}
             {filteredInvoices.length === 1 ? "Invoice" : "Invoices"}
@@ -620,7 +801,64 @@ export default function InvoiceList() {
         </div>
       )}
 
-      {/* Modals */}
+      {/* ======================================================== */}
+      {/* 8. FLOATING ACTION BUTTON (+ New Invoice) for Mobile     */}
+      {/* ======================================================== */}
+      <button
+        type="button"
+        onClick={() => setIsNewInvoiceOpen(true)}
+        aria-label="Create New Invoice"
+        className="fixed bottom-6 right-6 z-30 lg:hidden w-14 h-14 rounded-2xl bg-[#d0bcff] hover:bg-[#c2abfc] text-[#1e004d] dark:bg-[#d0bcff] dark:hover:bg-[#c2abfc] dark:text-[#1e004d] shadow-xl flex items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95"
+      >
+        <span className="material-symbols-outlined text-[30px] font-bold">
+          add
+        </span>
+      </button>
+
+      {/* ======================================================== */}
+      {/* 9. MOBILE FILTER BOTTOM SHEET DRAWER                     */}
+      {/* ======================================================== */}
+      <InvoiceMobileFilterDrawer
+        isOpen={isMobileFilterOpen}
+        onClose={() => setIsMobileFilterOpen(false)}
+        documentType={documentType}
+        onDocumentTypeChange={(type) => {
+          setDocumentType(type);
+          setCurrentPage(1);
+        }}
+        paymentStatus={paymentStatus}
+        onPaymentStatusChange={(status) => {
+          setPaymentStatus(status);
+          setCurrentPage(1);
+        }}
+        documentStatus={documentStatus}
+        onDocumentStatusChange={(status) => {
+          setDocumentStatus(status);
+          setCurrentPage(1);
+        }}
+        datePreset={datePreset}
+        onDatePresetChange={(preset) => {
+          setDatePreset(preset);
+          setCurrentPage(1);
+        }}
+        customStartDate={customStartDate}
+        onCustomStartDateChange={setCustomStartDate}
+        customEndDate={customEndDate}
+        onCustomEndDateChange={setCustomEndDate}
+        customerFilter={customerFilter}
+        onCustomerFilterChange={(cust) => {
+          setCustomerFilter(cust);
+          setCurrentPage(1);
+        }}
+        customers={customers}
+        onResetFilters={handleResetFilters}
+        activeFilterCount={activeFilterCount}
+        resultCount={filteredInvoices.length}
+      />
+
+      {/* ======================================================== */}
+      {/* 10. MODALS (Shared across Desktop and Mobile)            */}
+      {/* ======================================================== */}
       {/* 1. Details Modal */}
       <InvoiceDetailsModal
         open={isDetailsOpen}
