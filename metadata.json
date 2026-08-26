@@ -1,4 +1,6 @@
 {
   "name": "Tours and Travels",
-  "description": "Tours and Travels management web application for managing trips, bookings, fleet vehicles, drivers, and customers."
+  "description": "Tours and Travels management web application for managing trips, bookings, fleet vehicles, drivers, customers, and GST-compliant consolidated multi-trip invoicing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

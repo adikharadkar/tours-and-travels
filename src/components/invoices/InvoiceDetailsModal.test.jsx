@@ -259,7 +259,7 @@ describe("InvoiceDetailsModal", () => {
 
     render(<InvoiceDetailsModal {...createProps({ invoice })} />);
 
-    expect(screen.getByText("Consolidated Contract")).toBeInTheDocument();
+    expect(screen.getByText("Consolidated Fleet Batch")).toBeInTheDocument();
 
     expect(screen.getByText("3 Trips")).toBeInTheDocument();
   });

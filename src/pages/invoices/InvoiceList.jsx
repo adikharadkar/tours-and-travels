@@ -10,6 +10,7 @@ import InvoiceMobileFilterDrawer from "../../components/invoices/InvoiceMobileFi
 import InvoiceDetailsModal from "../../components/invoices/InvoiceDetailsModal";
 import RecordPaymentModal from "../../components/invoices/RecordPaymentModal";
 import NewInvoiceModal from "../../components/invoices/NewInvoiceModal";
+import ConsolidatedInvoiceModal from "../../components/invoices/ConsolidatedInvoiceModal";
 import ExportModal from "../../components/invoices/ExportModal";
 import Pagination from "../../components/ui/Pagination";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
@@ -61,6 +62,7 @@ export default function InvoiceList() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isNewInvoiceOpen, setIsNewInvoiceOpen] = useState(false);
+  const [isConsolidatedOpen, setIsConsolidatedOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [invoiceToCancel, setInvoiceToCancel] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
@@ -470,7 +472,7 @@ export default function InvoiceList() {
             </p>
           </div>
 
-          {/* Header Actions: Export + Generate from Trip + + New Invoice */}
+          {/* Header Actions: Export + Consolidated + Generate from Trip + + New Invoice */}
           <div className="flex items-center gap-2.5">
             <button
               type="button"
@@ -481,6 +483,17 @@ export default function InvoiceList() {
                 file_download
               </span>
               <span>Export</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsConsolidatedOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-md border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all cursor-pointer shadow-2xs"
+            >
+              <span className="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">
+                receipt_long
+              </span>
+              <span>Consolidated Invoice</span>
             </button>
 
             <button
@@ -618,6 +631,31 @@ export default function InvoiceList() {
           <span className="font-mono text-xs font-semibold text-slate-500 dark:text-zinc-400 tracking-wider">
             {mobileCountLabel}
           </span>
+        </div>
+
+        {/* Mobile Quick Action Buttons Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <button
+            type="button"
+            onClick={() => setIsConsolidatedOpen(true)}
+            className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 shadow-2xs cursor-pointer whitespace-nowrap"
+          >
+            <span className="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">
+              receipt_long
+            </span>
+            <span>Consolidated</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/invoices/generate")}
+            className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-[#121314] border border-slate-200 dark:border-[#27272a] text-slate-700 dark:text-zinc-200 shadow-2xs cursor-pointer whitespace-nowrap"
+          >
+            <span className="material-symbols-outlined text-[16px] text-primary">
+              bolt
+            </span>
+            <span>From Trip</span>
+          </button>
         </div>
 
         {/* Active Filter Chips (if any) */}
@@ -902,6 +940,16 @@ export default function InvoiceList() {
         onClose={() => setIsNewInvoiceOpen(false)}
         customers={customers}
         trips={trips}
+        onSaveInvoice={handleSaveNewInvoice}
+      />
+
+      {/* 3.1 Consolidated Multi-Trip Invoice Modal */}
+      <ConsolidatedInvoiceModal
+        open={isConsolidatedOpen}
+        onClose={() => setIsConsolidatedOpen(false)}
+        customers={customers}
+        trips={trips}
+        invoices={invoices}
         onSaveInvoice={handleSaveNewInvoice}
       />
 

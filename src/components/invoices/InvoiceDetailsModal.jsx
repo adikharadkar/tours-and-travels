@@ -186,7 +186,7 @@ export default function InvoiceDetailsModal({
         <div className="p-3 rounded-md bg-white dark:bg-[#121314] border border-slate-200 dark:border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <span className="material-symbols-outlined text-[22px] text-indigo-500">
-              {invoice.isConsolidated ? "inventory_2" : "route"}
+              {invoice.isConsolidated ? "receipt_long" : "route"}
             </span>
             <div>
               <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 block">
@@ -196,17 +196,22 @@ export default function InvoiceDetailsModal({
                 <span>
                   {invoice.tripCode ||
                     (invoice.isConsolidated
-                      ? "Consolidated Contract"
+                      ? "Consolidated Fleet Batch"
                       : "Direct Operational Charge")}
                 </span>
                 {invoice.isConsolidated && (
                   <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-medium">
-                    {invoice.consolidatedTripsCount || 1} Trips
+                    {invoice.consolidatedTripsCount ||
+                      (invoice.trips ? invoice.trips.length : 1)}{" "}
+                    Trips
                   </span>
                 )}
               </div>
               <div className="text-[11px] text-slate-500 dark:text-zinc-400">
-                {invoice.route || "Point to Point Fleet Movement"}
+                {invoice.route ||
+                  (invoice.consolidatedPeriod
+                    ? `Period: ${invoice.consolidatedPeriod}`
+                    : "Point to Point Fleet Movement")}
               </div>
             </div>
           </div>
@@ -222,6 +227,52 @@ export default function InvoiceDetailsModal({
             </div>
           )}
         </div>
+
+        {/* Consolidated Trips Sub-Table if Consolidated Invoice */}
+        {invoice.isConsolidated &&
+          Array.isArray(invoice.trips) &&
+          invoice.trips.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-slate-900 dark:text-zinc-200 block">
+                Consolidated Trips ({invoice.trips.length} Movements)
+              </span>
+              <div className="overflow-x-auto rounded border border-slate-200 dark:border-[#27272a]">
+                <table className="w-full text-left text-xs border-collapse font-mono">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-[#27272a] bg-slate-50 dark:bg-[#161719] text-[10px] uppercase text-slate-500 dark:text-zinc-500">
+                      <th className="py-2 px-3">Trip Code</th>
+                      <th className="py-2 px-3">Date</th>
+                      <th className="py-2 px-3 font-sans">Route & Vehicle</th>
+                      <th className="py-2 px-3 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                    {invoice.trips.map((t, idx) => (
+                      <tr key={t.id || idx}>
+                        <td className="py-2 px-3 font-bold text-slate-900 dark:text-zinc-100">
+                          {t.tripCode}
+                        </td>
+                        <td className="py-2 px-3 text-slate-500 dark:text-zinc-400">
+                          {t.date || "—"}
+                        </td>
+                        <td className="py-2 px-3 font-sans text-slate-700 dark:text-zinc-300">
+                          <div>{t.route}</div>
+                          {t.vehicleNumber && (
+                            <div className="text-[11px] text-slate-400 font-mono">
+                              {t.vehicleNumber}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-zinc-100">
+                          {formatINR(t.totalAmount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
         {/* Line Items Table */}
         <div>
