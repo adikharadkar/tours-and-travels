@@ -14,6 +14,8 @@ import {
   getPaymentStatusStyles,
   getDocumentTypeStyles,
 } from "../../utils/invoiceStatus";
+import { numberToWordsINR } from "../../utils/numberToWords";
+import { calculateInvoiceTaxes } from "../../utils/taxCalculation";
 
 export default function InvoiceDetailsModal({
   isOpen,
@@ -25,6 +27,7 @@ export default function InvoiceDetailsModal({
   onCancelInvoice,
 }) {
   const isModalOpen = open !== undefined ? open : isOpen;
+
   if (!invoice || !isModalOpen) return null;
 
   const docStatus = getDocumentStatusStyles(invoice.documentStatus);
@@ -46,23 +49,108 @@ export default function InvoiceDetailsModal({
   const isFullyPaid =
     invoice.paymentStatus === "paid" || (total > 0 && due === 0);
 
+  const amountInWords = numberToWordsINR(total);
+
+  // Address formatting
+  const addressParts = [
+    invoice.customerBillingAddress ||
+      invoice.customerAddress ||
+      invoice.billingAddress,
+    invoice.customerCity || invoice.billingCity || invoice.city,
+    invoice.customerState || invoice.billingState || invoice.state,
+    invoice.customerPinCode ||
+      invoice.customerPincode ||
+      invoice.billingPincode ||
+      invoice.pinCode,
+  ].filter(Boolean);
+
+  const formattedAddress = addressParts.join(", ");
+
+  const pan =
+    invoice.customerPan ||
+    (invoice.customerGstin && invoice.customerGstin.length >= 12
+      ? invoice.customerGstin.substring(2, 12)
+      : null);
+
+  // Consolidated KM calculation if applicable
+  const totalConsolidatedKm =
+    invoice.isConsolidated && Array.isArray(invoice.trips)
+      ? invoice.trips.reduce((sum, t) => sum + (Number(t.totalKm) || 0), 0)
+      : invoice.totalKm;
+
+  // Calculate tax breakdown (SGST + CGST / IGST)
+  let computedTaxRows = [];
+  if (Array.isArray(invoice.taxRows) && invoice.taxRows.length > 0) {
+    computedTaxRows = invoice.taxRows;
+  } else if (
+    invoice.cgstAmount !== undefined &&
+    invoice.sgstAmount !== undefined &&
+    (Number(invoice.cgstAmount) > 0 || Number(invoice.sgstAmount) > 0)
+  ) {
+    const halfRate = invoice.taxRate
+      ? (Number(invoice.taxRate) / 2).toFixed(0)
+      : 9;
+    computedTaxRows = [
+      { name: `CGST (${halfRate}%)`, amount: Number(invoice.cgstAmount) },
+      { name: `SGST (${halfRate}%)`, amount: Number(invoice.sgstAmount) },
+    ];
+  } else if (invoice.items && invoice.items.length > 0) {
+    const taxRes = calculateInvoiceTaxes({
+      items: invoice.items,
+      customerGstin: invoice.customerGstin,
+      customerState:
+        invoice.customerState || invoice.billingState || invoice.state,
+    });
+    if (taxRes.taxRows && taxRes.taxRows.length > 0) {
+      computedTaxRows = taxRes.taxRows;
+    }
+  }
+
+  // Fallback if taxAmount or taxRate is provided but not computed above
+  if (
+    computedTaxRows.length === 0 &&
+    (Number(invoice.taxAmount) > 0 || Number(invoice.taxRate) > 0)
+  ) {
+    const totalTax = Number(invoice.taxAmount || 0);
+    const halfRate = invoice.taxRate
+      ? (Number(invoice.taxRate) / 2).toFixed(0)
+      : 9;
+    const halfTax =
+      totalTax > 0
+        ? totalTax / 2
+        : (Number(invoice.subtotal || invoice.totalAmount || 0) *
+            (Number(invoice.taxRate) / 2)) /
+          100;
+    computedTaxRows = [
+      { name: `CGST (${halfRate}%)`, amount: halfTax },
+      { name: `SGST (${halfRate}%)`, amount: halfTax },
+    ];
+  }
+
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    <Modal open={isModalOpen} onClose={onClose} className="max-w-2xl">
-      <ModalHeader>
-        <div className="flex items-start justify-between gap-4 w-full pr-6">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2 flex-wrap">
-              <ModalTitle className="font-mono text-lg font-bold text-slate-900 dark:text-zinc-100">
+    <Modal open={isModalOpen} onClose={onClose} className="max-w-5xl">
+      {/* Top Header Banner */}
+      <ModalHeader className="border-b border-border p-5 sm:p-6 bg-surface/50">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <ModalTitle className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                 {invoice.invoiceNumber}
               </ModalTitle>
 
+              {/* Document Type Badge */}
+              <span className="font-mono text-[11px] font-bold px-2.5 py-0.5 rounded bg-muted/20 text-foreground border border-border tracking-wider uppercase">
+                {docTypeStyles.label.toUpperCase()}
+              </span>
+
+              {/* Document Status Pill */}
               <span
                 className={[
-                  "inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-mono font-medium",
+                  "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium",
                   docStatus.pill,
                 ].join(" ")}
               >
@@ -76,10 +164,11 @@ export default function InvoiceDetailsModal({
                 <span>{docStatus.label}</span>
               </span>
 
+              {/* Payment Status Pill */}
               {!isDraft && (
                 <span
                   className={[
-                    "inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-mono font-medium",
+                    "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium",
                     pmtStatus.pill,
                   ].join(" ")}
                 >
@@ -96,174 +185,324 @@ export default function InvoiceDetailsModal({
               )}
             </div>
 
-            <ModalDescription className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+            <ModalDescription className="text-xs text-muted">
               {docTypeStyles.label} &bull; Created on{" "}
               {formatInvoiceDate(invoice.createdAt || invoice.issueDate)}
+              {invoice.issuedAt && (
+                <span>
+                  {" "}
+                  &bull; Issued {formatInvoiceDate(invoice.issuedAt)}
+                </span>
+              )}
             </ModalDescription>
+          </div>
+
+          {/* Header Quick Actions & Dates */}
+          <div className="flex items-center gap-3 self-end sm:self-center">
+            <div className="text-right hidden sm:block">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-muted font-semibold">
+                DATE: {formatInvoiceDate(invoice.issueDate).toUpperCase()}
+              </div>
+              <div className="text-[11px] font-mono text-muted">
+                DUE: {formatInvoiceDate(invoice.dueDate)}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handlePrint}
+                title="Print Invoice"
+                className="p-2 rounded-lg border border-border text-muted hover:text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  print
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                title="Close"
+                className="p-2 rounded-lg border border-border text-muted hover:text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  close
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </ModalHeader>
 
-      <ModalContent className="space-y-5 text-xs text-slate-700 dark:text-zinc-300 max-h-[75vh] overflow-y-auto pr-1">
+      <ModalContent className="space-y-6 text-xs text-foreground p-5 sm:p-6 max-h-[72vh] overflow-y-auto pr-1">
         {/* Overdue alert banner if overdue */}
         {isOverdue && (
-          <div className="p-3 rounded-md bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 flex items-center justify-between text-rose-800 dark:text-rose-300">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[20px] text-rose-600 dark:text-rose-400">
-                warning
+          <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 flex items-center justify-between text-rose-800 dark:text-rose-300">
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-[22px] text-rose-600 dark:text-rose-400">
+                error
               </span>
               <div>
-                <span className="font-semibold block">Payment is Overdue</span>
-                <span className="text-[11px] text-rose-600 dark:text-rose-400">
+                <span className="font-bold text-sm block">
+                  Payment is Overdue
+                </span>
+                <span className="text-xs text-rose-600 dark:text-rose-400">
                   {overdueInfo.text} (Due Date:{" "}
                   {formatInvoiceDate(invoice.dueDate)})
                 </span>
               </div>
             </div>
-            <div className="font-mono font-bold text-sm">
+            <div className="font-mono font-bold text-base">
               {formatINR(due)} Due
             </div>
           </div>
         )}
 
-        {/* Customer & Billing Meta Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-md bg-slate-50 dark:bg-[#161719] border border-slate-200 dark:border-[#27272a]">
-          {/* Customer info */}
-          <div className="space-y-1">
-            <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 font-semibold block">
-              Billed To (Customer)
-            </span>
-            <div className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-              {invoice.customerName}
+        {/* 3-Column Context Grid (Billed To, Operational Context, Payment Summary) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Column 1: BILLED TO */}
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted">
+                  BILLED TO
+                </span>
+                {invoice.customerCode && (
+                  <span className="font-mono text-[11px] text-muted">
+                    Code: {invoice.customerCode}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-2.5">
+                <h4 className="text-sm font-bold text-foreground">
+                  {invoice.customerName}
+                </h4>
+                {formattedAddress && (
+                  <p className="mt-1 text-xs text-muted leading-relaxed line-clamp-3">
+                    {formattedAddress}
+                  </p>
+                )}
+              </div>
             </div>
-            {invoice.customerCode && (
-              <div className="text-slate-500 dark:text-zinc-400 font-mono text-[11px]">
-                Code: {invoice.customerCode}
-              </div>
-            )}
-            {invoice.customerGstin && (
-              <div className="text-slate-500 dark:text-zinc-400 font-mono text-[11px]">
-                GSTIN: {invoice.customerGstin}
-              </div>
-            )}
+
+            <div className="pt-2 border-t border-border space-y-1 font-mono text-[11px]">
+              {invoice.customerGstin ? (
+                <div className="text-muted">GSTIN: {invoice.customerGstin}</div>
+              ) : (
+                <div className="text-muted">GSTIN: Unregistered</div>
+              )}
+              {pan && <div className="text-muted">PAN: {pan}</div>}
+              {invoice.contactPerson && (
+                <div className="text-muted font-sans text-xs">
+                  Attn: {invoice.contactPerson}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Invoice Dates & Terms */}
-          <div className="space-y-1 sm:text-right">
-            <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 font-semibold block">
-              Invoice Terms & Dates
-            </span>
+          {/* Column 2: OPERATIONAL CONTEXT */}
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3 flex flex-col justify-between">
             <div>
-              <span className="text-slate-500 dark:text-zinc-400">
-                Issue Date:{" "}
-              </span>
-              <span className="font-medium text-slate-900 dark:text-zinc-100">
-                {formatInvoiceDate(invoice.issueDate)}
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-500 dark:text-zinc-400">
-                Due Date:{" "}
-              </span>
-              <span className="font-medium text-slate-900 dark:text-zinc-100">
-                {formatInvoiceDate(invoice.dueDate)}
-              </span>
-            </div>
-            {invoice.paymentTerms && (
-              <div>
-                <span className="text-slate-500 dark:text-zinc-400">
-                  Terms:{" "}
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted">
+                  OPERATIONAL CONTEXT
                 </span>
-                <span className="font-medium text-slate-900 dark:text-zinc-100">
-                  {invoice.paymentTerms}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Trip Reference Section */}
-        <div className="p-3 rounded-md bg-white dark:bg-[#121314] border border-slate-200 dark:border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="material-symbols-outlined text-[22px] text-indigo-500">
-              {invoice.isConsolidated ? "receipt_long" : "route"}
-            </span>
-            <div>
-              <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 block">
-                Operation / Trip Reference
-              </span>
-              <div className="font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
-                <span>
-                  {invoice.tripCode ||
-                    (invoice.isConsolidated
-                      ? "Consolidated Fleet Batch"
-                      : "Direct Operational Charge")}
-                </span>
-                {invoice.isConsolidated && (
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-medium">
+                {invoice.isConsolidated ? (
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">
                     {invoice.consolidatedTripsCount ||
                       (invoice.trips ? invoice.trips.length : 1)}{" "}
                     Trips
                   </span>
+                ) : (
+                  <span className="font-mono text-[11px] font-semibold text-foreground">
+                    {invoice.tripCode || "Direct Charge"}
+                  </span>
                 )}
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-zinc-400">
-                {invoice.route ||
-                  (invoice.consolidatedPeriod
-                    ? `Period: ${invoice.consolidatedPeriod}`
-                    : "Point to Point Fleet Movement")}
+
+              <div className="mt-2.5 space-y-2 text-xs">
+                {invoice.isConsolidated ? (
+                  <>
+                    <div className="flex items-center justify-between text-muted">
+                      <span>Type:</span>
+                      <span className="font-semibold text-foreground">
+                        Consolidated Fleet Batch
+                      </span>
+                    </div>
+                    {invoice.consolidatedPeriod && (
+                      <div className="flex items-center justify-between text-muted">
+                        <span>Period:</span>
+                        <span className="font-medium text-foreground">
+                          {invoice.consolidatedPeriod}
+                        </span>
+                      </div>
+                    )}
+                    {totalConsolidatedKm ? (
+                      <div className="flex items-center justify-between text-muted">
+                        <span>Total Mileage:</span>
+                        <span className="font-mono font-semibold text-foreground">
+                          {totalConsolidatedKm} KM
+                        </span>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-0.5">
+                      <span className="text-[11px] text-muted">Route:</span>
+                      <div className="font-semibold text-foreground">
+                        {invoice.route || "Standard Transportation Service"}
+                      </div>
+                    </div>
+                    {invoice.vehicleNumber && (
+                      <div className="flex items-center justify-between text-muted">
+                        <span>Vehicle:</span>
+                        <span className="font-mono font-semibold text-foreground">
+                          {invoice.vehicleNumber}
+                        </span>
+                      </div>
+                    )}
+                    {invoice.driverName && (
+                      <div className="flex items-center justify-between text-muted">
+                        <span>Driver:</span>
+                        <span className="font-medium text-foreground">
+                          {invoice.driverName}
+                        </span>
+                      </div>
+                    )}
+                    {invoice.totalKm && (
+                      <div className="flex items-center justify-between text-muted">
+                        <span>Distance:</span>
+                        <span className="font-mono font-semibold text-foreground">
+                          {invoice.totalKm} KM
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
+            </div>
+
+            <div className="pt-2 border-t border-border flex items-center justify-between text-[11px] font-mono text-muted">
+              <span>Terms:</span>
+              <span className="font-semibold text-foreground font-sans">
+                {invoice.paymentTerms || "30 Days"}
+              </span>
             </div>
           </div>
 
-          {invoice.paymentReference && (
-            <div className="text-left sm:text-right">
-              <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 block">
-                Payment Ref
-              </span>
-              <span className="font-mono text-xs text-slate-800 dark:text-zinc-300 font-medium">
-                {invoice.paymentReference}
-              </span>
+          {/* Column 3: PAYMENT SUMMARY */}
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted">
+                  PAYMENT SUMMARY
+                </span>
+                <span className="font-mono text-[10px] text-muted">
+                  DUE {formatInvoiceDate(invoice.dueDate)}
+                </span>
+              </div>
+
+              <div className="mt-2.5 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between text-muted">
+                  <span>Total Billed:</span>
+                  <span className="font-mono font-semibold text-foreground">
+                    {formatINR(total)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-muted">
+                  <span>Amount Paid:</span>
+                  <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                    {formatINR(paid)}
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
+
+            <div className="pt-3 border-t border-border space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted font-bold block">
+                Outstanding Balance
+              </span>
+              <div
+                className={[
+                  "font-mono text-xl sm:text-2xl font-bold tracking-tight",
+                  due > 0
+                    ? isOverdue
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "text-foreground"
+                    : "text-emerald-600 dark:text-emerald-400",
+                ].join(" ")}
+              >
+                {formatINR(due)}
+              </div>
+
+              <div className="text-[11px] font-medium pt-0.5">
+                {isFullyPaid ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">
+                      check_circle
+                    </span>
+                    Paid in Full
+                  </span>
+                ) : isOverdue ? (
+                  <span className="text-rose-600 dark:text-rose-400">
+                    {overdueInfo.text}
+                  </span>
+                ) : (
+                  <span className="text-muted">
+                    Due in {formatInvoiceDate(invoice.dueDate)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Consolidated Trips Sub-Table if Consolidated Invoice */}
         {invoice.isConsolidated &&
           Array.isArray(invoice.trips) &&
           invoice.trips.length > 0 && (
-            <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-slate-900 dark:text-zinc-200 block">
-                Consolidated Trips ({invoice.trips.length} Movements)
-              </span>
-              <div className="overflow-x-auto rounded border border-slate-200 dark:border-[#27272a]">
-                <table className="w-full text-left text-xs border-collapse font-mono">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted">
+                  Consolidated Trips ({invoice.trips.length} Movements)
+                </span>
+                <span className="text-xs text-muted">
+                  Included in this billing batch
+                </span>
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-[#27272a] bg-slate-50 dark:bg-[#161719] text-[10px] uppercase text-slate-500 dark:text-zinc-500">
-                      <th className="py-2 px-3">Trip Code</th>
-                      <th className="py-2 px-3">Date</th>
-                      <th className="py-2 px-3 font-sans">Route & Vehicle</th>
-                      <th className="py-2 px-3 text-right">Amount</th>
+                    <tr className="border-b border-border bg-surface text-[10px] font-mono uppercase tracking-wider text-muted">
+                      <th className="py-2.5 px-3">Trip Code</th>
+                      <th className="py-2.5 px-3">Date</th>
+                      <th className="py-2.5 px-3">Route & Vehicle</th>
+                      <th className="py-2.5 px-3 text-right">Amount</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                  <tbody className="divide-y divide-border font-mono">
                     {invoice.trips.map((t, idx) => (
-                      <tr key={t.id || idx}>
-                        <td className="py-2 px-3 font-bold text-slate-900 dark:text-zinc-100">
+                      <tr
+                        key={t.id || idx}
+                        className="hover:bg-surface-hover transition-colors"
+                      >
+                        <td className="py-2.5 px-3 font-bold text-foreground">
                           {t.tripCode}
                         </td>
-                        <td className="py-2 px-3 text-slate-500 dark:text-zinc-400">
+                        <td className="py-2.5 px-3 text-muted">
                           {t.date || "—"}
                         </td>
-                        <td className="py-2 px-3 font-sans text-slate-700 dark:text-zinc-300">
-                          <div>{t.route}</div>
+                        <td className="py-2.5 px-3 font-sans text-foreground">
+                          <div className="font-medium">{t.route}</div>
                           {t.vehicleNumber && (
-                            <div className="text-[11px] text-slate-400 font-mono">
+                            <div className="text-[11px] text-muted font-mono">
                               {t.vehicleNumber}
                             </div>
                           )}
                         </td>
-                        <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-zinc-100">
+                        <td className="py-2.5 px-3 text-right font-bold text-foreground">
                           {formatINR(t.totalAmount)}
                         </td>
                       </tr>
@@ -275,48 +514,74 @@ export default function InvoiceDetailsModal({
           )}
 
         {/* Line Items Table */}
-        <div>
-          <span className="text-xs font-semibold text-slate-900 dark:text-zinc-200 mb-2 block">
-            Line Items & Charges
-          </span>
-          <div className="overflow-x-auto rounded border border-slate-200 dark:border-[#27272a]">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted">
+              Line Items & Charges
+            </span>
+            <span className="text-[11px] font-mono text-muted">
+              {invoice.items?.length || 1} Item(s)
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-[#27272a] bg-slate-50 dark:bg-[#161719] text-[10px] font-mono uppercase text-slate-500 dark:text-zinc-500">
-                  <th className="py-2 px-3">Description</th>
-                  <th className="py-2 px-3 text-center w-16">Qty</th>
-                  <th className="py-2 px-3 text-right w-24">Rate</th>
-                  <th className="py-2 px-3 text-right w-28">Amount</th>
+                <tr className="border-b border-border bg-surface text-[10px] font-mono uppercase tracking-wider text-muted">
+                  <th className="py-2.5 px-3 w-10">#</th>
+                  <th className="py-2.5 px-4">Description</th>
+                  <th className="py-2.5 px-3 text-center w-20">Qty</th>
+                  <th className="py-2.5 px-3 text-right w-28">Rate</th>
+                  <th className="py-2.5 px-4 text-right w-32">Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+              <tbody className="divide-y divide-border">
                 {invoice.items && invoice.items.length > 0 ? (
                   invoice.items.map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-zinc-200">
-                        {item.description}
+                    <tr
+                      key={idx}
+                      className="hover:bg-surface-hover transition-colors"
+                    >
+                      <td className="py-3 px-3 font-mono text-muted text-[11px]">
+                        {idx + 1}
                       </td>
-                      <td className="py-2.5 px-3 text-center text-slate-600 dark:text-zinc-400 font-mono">
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-foreground">
+                          {item.description}
+                        </div>
+                        {item.subtitle && (
+                          <div className="text-[11px] text-muted mt-0.5">
+                            {item.subtitle}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 text-center text-muted font-mono">
                         {item.quantity || 1}
                       </td>
-                      <td className="py-2.5 px-3 text-right text-slate-600 dark:text-zinc-400 font-mono">
-                        {formatINR(item.unitRate || item.amount)}
+                      <td className="py-3 px-3 text-right text-muted font-mono">
+                        {formatINR(item.unitRate || item.rate || item.amount)}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900 dark:text-zinc-100">
-                        {formatINR(item.amount)}
+                      <td className="py-3 px-4 text-right font-mono font-bold text-foreground">
+                        {Number(item.amount || 0) < 0 ? "-" : ""}
+                        {formatINR(Math.abs(item.amount || 0))}
                       </td>
                     </tr>
                   ))
                 ) : (
-                  <tr>
-                    <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-zinc-200">
+                  <tr className="hover:bg-surface-hover transition-colors">
+                    <td className="py-3 px-3 font-mono text-muted text-[11px]">
+                      1
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-foreground">
                       {invoice.route || "Transport Freight Service"}
                     </td>
-                    <td className="py-2.5 px-3 text-center font-mono">1</td>
-                    <td className="py-2.5 px-3 text-right font-mono">
+                    <td className="py-3 px-3 text-center font-mono text-muted">
+                      1
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono text-muted">
                       {formatINR(invoice.subtotal || invoice.totalAmount)}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-semibold">
+                    <td className="py-3 px-4 text-right font-mono font-bold text-foreground">
                       {formatINR(invoice.subtotal || invoice.totalAmount)}
                     </td>
                   </tr>
@@ -326,118 +591,161 @@ export default function InvoiceDetailsModal({
           </div>
         </div>
 
-        {/* Financial Calculation Summary */}
-        <div className="flex flex-col sm:flex-row justify-between gap-4 pt-2">
-          {/* Notes */}
-          <div className="flex-1 text-slate-500 dark:text-zinc-400 text-xs bg-slate-50 dark:bg-[#161719] p-3 rounded border border-slate-200 dark:border-[#27272a]">
-            <span className="font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
-              Remarks & Instructions
-            </span>
-            <p className="italic text-[11px] leading-relaxed">
-              {invoice.notes ||
-                "Standard transportation freight contract. Subject to local state jurisdiction."}
-            </p>
+        {/* Bottom Financial Summary & Notes Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          {/* Left Column: Words, Notes, and Payment History */}
+          <div className="space-y-4">
+            {/* Amount in Words */}
+            <div className="rounded-xl border border-border bg-card p-4 space-y-1">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted">
+                AMOUNT IN WORDS
+              </span>
+              <p className="italic text-xs text-foreground font-medium">
+                {amountInWords}
+              </p>
+            </div>
+
+            {/* Remarks / Instructions */}
+            <div className="rounded-xl border border-border bg-card p-4 space-y-1">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted">
+                Remarks & Instructions
+              </span>
+              <p className="text-xs text-muted leading-relaxed">
+                {invoice.notes ||
+                  "Standard transportation freight contract. Subject to local state jurisdiction. All cheques / transfers payable to FleetCore Logistics."}
+              </p>
+            </div>
+
+            {/* Payment Receipts timeline if payment history exists */}
+            {invoice.paymentHistory && invoice.paymentHistory.length > 0 && (
+              <div className="space-y-2">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted block">
+                  Payment Receipts ({invoice.paymentHistory.length})
+                </span>
+                <div className="space-y-2">
+                  {invoice.paymentHistory.map((pmt, index) => (
+                    <div
+                      key={pmt.id || index}
+                      className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-[18px] text-emerald-600 dark:text-emerald-400">
+                          check_circle
+                        </span>
+                        <div>
+                          <span className="font-mono font-bold text-foreground">
+                            {formatINR(pmt.amount)}
+                          </span>
+                          <span className="text-[11px] text-muted ml-2">
+                            via{" "}
+                            {pmt.paymentMode?.replace("_", " ").toUpperCase() ||
+                              "BANK TRANSFER"}
+                          </span>
+                          {pmt.referenceNumber && (
+                            <span className="text-[11px] font-mono text-muted ml-2 block sm:inline">
+                              Ref: {pmt.referenceNumber}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-muted font-mono">
+                        {formatInvoiceDate(pmt.paymentDate || pmt.createdAt)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Totals Breakdown */}
-          <div className="w-full sm:w-64 space-y-1.5 font-mono text-xs">
-            <div className="flex justify-between text-slate-600 dark:text-zinc-400">
-              <span>Subtotal:</span>
-              <span>{formatINR(invoice.subtotal || invoice.totalAmount)}</span>
-            </div>
-
-            {invoice.discountAmount > 0 && (
-              <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
-                <span>Discount:</span>
-                <span>-{formatINR(invoice.discountAmount)}</span>
-              </div>
-            )}
-
-            {invoice.taxRate > 0 && (
-              <div className="flex justify-between text-slate-600 dark:text-zinc-400">
-                <span>GST ({invoice.taxRate}%):</span>
-                <span>{formatINR(invoice.taxAmount || 0)}</span>
-              </div>
-            )}
-
-            <div className="flex justify-between font-bold text-sm text-slate-900 dark:text-zinc-100 border-t border-slate-200 dark:border-zinc-700 pt-1.5">
-              <span>Total Amount:</span>
-              <span>{formatINR(total)}</span>
-            </div>
-
-            <div className="flex justify-between text-emerald-600 dark:text-emerald-400 pt-0.5">
-              <span>Paid to Date:</span>
-              <span>{formatINR(paid)}</span>
-            </div>
-
-            <div className="flex justify-between font-bold text-slate-900 dark:text-zinc-100 border-t border-dashed border-slate-200 dark:border-zinc-700 pt-1">
-              <span>Outstanding Due:</span>
-              <span
-                className={
-                  due > 0
-                    ? "text-rose-600 dark:text-rose-400 font-bold"
-                    : "text-emerald-600 dark:text-emerald-400"
-                }
-              >
-                {formatINR(due)}
+          {/* Right Column: Financial Totals Breakdown */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-2.5 font-mono text-xs flex flex-col justify-between">
+            <div className="space-y-2">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted block border-b border-border pb-2">
+                TAX & CHARGE BREAKDOWN
               </span>
+
+              <div className="flex justify-between text-muted pt-1">
+                <span>Subtotal:</span>
+                <span className="font-semibold text-foreground">
+                  {formatINR(invoice.subtotal || invoice.totalAmount)}
+                </span>
+              </div>
+
+              {invoice.discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+                  <span>Discount:</span>
+                  <span>-{formatINR(invoice.discountAmount)}</span>
+                </div>
+              )}
+
+              {computedTaxRows.length > 0 &&
+                computedTaxRows.map((t, idx) => (
+                  <div key={idx} className="flex justify-between text-muted">
+                    <span>{t.name}:</span>
+                    <span className="font-semibold text-foreground">
+                      {formatINR(t.amount)}
+                    </span>
+                  </div>
+                ))}
+
+              {invoice.roundOff && invoice.roundOff !== 0 && (
+                <div className="flex justify-between text-muted">
+                  <span>Round Off:</span>
+                  <span className="font-semibold text-foreground">
+                    {invoice.roundOff > 0 ? "+" : ""}
+                    {formatINR(invoice.roundOff)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-3 border-t border-border">
+              <div className="flex justify-between items-center text-sm font-bold text-foreground">
+                <span>Total Amount:</span>
+                <span className="text-base text-primary font-bold">
+                  {formatINR(total)}
+                </span>
+              </div>
+
+              <div className="flex justify-between text-emerald-600 dark:text-emerald-400 text-xs">
+                <span>Paid to Date:</span>
+                <span className="font-semibold">{formatINR(paid)}</span>
+              </div>
+
+              <div className="flex justify-between items-center font-bold text-foreground border-t border-dashed border-border pt-2">
+                <span className="text-xs">Outstanding Due:</span>
+                <span
+                  className={[
+                    "text-sm font-bold",
+                    due > 0
+                      ? isOverdue
+                        ? "text-rose-600 dark:text-rose-400"
+                        : "text-foreground"
+                      : "text-emerald-600 dark:text-emerald-400",
+                  ].join(" ")}
+                >
+                  {formatINR(due)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Payment History Timeline */}
-        {invoice.paymentHistory && invoice.paymentHistory.length > 0 && (
-          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
-            <span className="text-xs font-semibold text-slate-900 dark:text-zinc-200 block">
-              Payment Receipts ({invoice.paymentHistory.length})
-            </span>
-            <div className="space-y-1.5">
-              {invoice.paymentHistory.map((pmt, index) => (
-                <div
-                  key={pmt.id || index}
-                  className="flex items-center justify-between p-2.5 rounded bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 text-xs"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400">
-                      check_circle
-                    </span>
-                    <div>
-                      <span className="font-semibold text-slate-900 dark:text-zinc-100">
-                        {formatINR(pmt.amount)}
-                      </span>
-                      <span className="text-[11px] text-slate-500 dark:text-zinc-400 ml-2">
-                        via{" "}
-                        {pmt.paymentMode?.replace("_", " ").toUpperCase() ||
-                          "BANK TRANSFER"}
-                      </span>
-                      {pmt.referenceNumber && (
-                        <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 ml-2">
-                          Ref: {pmt.referenceNumber}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
-                    {formatInvoiceDate(pmt.paymentDate || pmt.createdAt)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </ModalContent>
 
-      <ModalFooter className="flex items-center justify-between gap-2 border-t border-slate-200 dark:border-[#27272a] pt-3">
+      {/* Footer Actions */}
+      <ModalFooter className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-4 sm:p-5 bg-surface/50">
         <div className="flex items-center gap-2">
-          {/* Print/Download button */}
-          <button
+          {/* Print button */}
+          <Button
             type="button"
+            variant="secondary"
             onClick={handlePrint}
-            className="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-200 dark:border-zinc-700 bg-white dark:bg-[#121314] text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-1.5 cursor-pointer"
+            className="flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[16px]">print</span>
             <span>Print</span>
-          </button>
+          </Button>
 
           {/* Cancel button if not already cancelled */}
           {!isCancelled && (
@@ -447,7 +755,7 @@ export default function InvoiceDetailsModal({
                 onCancelInvoice(invoice);
                 onClose();
               }}
-              className="px-3 py-1.5 text-xs font-medium rounded-md text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+              className="px-3 py-1.5 text-xs font-medium rounded-md text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
             >
               Cancel Invoice
             </button>
@@ -457,6 +765,7 @@ export default function InvoiceDetailsModal({
         <div className="flex items-center gap-2">
           {isDraft && (
             <Button
+              type="button"
               variant="primary"
               onClick={() => {
                 onIssueInvoice(invoice);
@@ -469,6 +778,7 @@ export default function InvoiceDetailsModal({
 
           {!isDraft && !isCancelled && !isFullyPaid && (
             <Button
+              type="button"
               variant="primary"
               onClick={() => {
                 onClose();
@@ -479,7 +789,7 @@ export default function InvoiceDetailsModal({
             </Button>
           )}
 
-          <Button variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             Close
           </Button>
         </div>

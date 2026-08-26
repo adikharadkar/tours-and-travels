@@ -105,11 +105,12 @@ describe("InvoiceDetailsModal", () => {
     expect(screen.getByText("Loading & Unloading Charges")).toBeInTheDocument();
   });
 
-  it("renders discount and GST when applicable", () => {
+  it("renders discount and CGST / SGST when applicable", () => {
     render(<InvoiceDetailsModal {...createProps()} />);
 
     expect(screen.getByText("Discount:")).toBeInTheDocument();
-    expect(screen.getByText("GST (18%):")).toBeInTheDocument();
+    expect(screen.getByText("CGST (9%):")).toBeInTheDocument();
+    expect(screen.getByText("SGST (9%):")).toBeInTheDocument();
   });
 
   it("renders payment history", () => {
