@@ -16,6 +16,7 @@ import {
 } from "../../utils/invoiceStatus";
 import { numberToWordsINR } from "../../utils/numberToWords";
 import { calculateInvoiceTaxes } from "../../utils/taxCalculation";
+import InvoiceExportMenu from "./InvoiceExportMenu";
 
 export default function InvoiceDetailsModal({
   isOpen,
@@ -209,6 +210,11 @@ export default function InvoiceDetailsModal({
             </div>
 
             <div className="flex items-center gap-1.5">
+              <InvoiceExportMenu
+                invoice={invoice}
+                buttonVariant="secondary"
+                buttonSize="sm"
+              />
               <button
                 type="button"
                 onClick={handlePrint}
@@ -736,6 +742,14 @@ export default function InvoiceDetailsModal({
       {/* Footer Actions */}
       <ModalFooter className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-4 sm:p-5 bg-surface/50">
         <div className="flex items-center gap-2">
+          {/* Export button menu (opens upward inside the modal) */}
+          <InvoiceExportMenu
+            invoice={invoice}
+            buttonVariant="secondary"
+            direction="up"
+            align="left"
+          />
+
           {/* Print button */}
           <Button
             type="button"

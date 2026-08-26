@@ -5,6 +5,11 @@ import {
   getOverdueInfo,
   getDocumentTypeStyles,
 } from "../../utils/invoiceStatus";
+import {
+  exportInvoiceToPdf,
+  exportInvoiceToExcel,
+  exportInvoiceToCsv,
+} from "../../services/invoiceExportService";
 
 export default function InvoiceMobileCard({
   invoice,
@@ -345,7 +350,57 @@ export default function InvoiceMobileCard({
                 </button>
               )}
 
-              {/* 4. Print / PDF */}
+              {/* 4. Export Actions Divider & Submenu */}
+              <div className="border-t border-slate-100 dark:border-zinc-800/80 my-1" />
+              <div className="px-3 py-1 text-[10px] font-semibold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
+                Export Invoice
+              </div>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsMenuOpen(false);
+                  await exportInvoiceToPdf(invoice);
+                }}
+                className="w-full px-3 py-2 text-xs font-medium rounded-lg text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-2 text-left transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px] text-rose-500">
+                  picture_as_pdf
+                </span>
+                <span>Export PDF (.pdf)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsMenuOpen(false);
+                  await exportInvoiceToExcel(invoice);
+                }}
+                className="w-full px-3 py-2 text-xs font-medium rounded-lg text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-2 text-left transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px] text-emerald-500">
+                  table_view
+                </span>
+                <span>Export Excel (.xlsx)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  exportInvoiceToCsv(invoice);
+                }}
+                className="w-full px-3 py-2 text-xs font-medium rounded-lg text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-2 text-left transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px] text-indigo-500">
+                  csv
+                </span>
+                <span>Export CSV (.csv)</span>
+              </button>
+
+              <div className="border-t border-slate-100 dark:border-zinc-800/80 my-1" />
+
+              {/* 5. Print */}
               <button
                 type="button"
                 onClick={() => {

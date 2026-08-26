@@ -476,6 +476,8 @@ export default function InvoiceList() {
           <div className="flex items-center gap-2.5">
             <button
               type="button"
+              id="header-export-invoices-btn"
+              aria-label="Export Invoices"
               onClick={() => setIsExportOpen(true)}
               className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-md border border-slate-200 dark:border-[#27272a] bg-white dark:bg-[#121314] text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-[#1a1b1d] transition-all cursor-pointer shadow-2xs"
             >

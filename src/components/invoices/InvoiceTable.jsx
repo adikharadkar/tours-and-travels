@@ -6,6 +6,7 @@ import {
   getPaymentStatusStyles,
   getDocumentTypeStyles,
 } from "../../utils/invoiceStatus";
+import InvoiceExportMenu from "./InvoiceExportMenu";
 
 export default function InvoiceTable({
   invoices = [],
@@ -321,6 +322,18 @@ export default function InvoiceTable({
                         </span>
                       </button>
                     )}
+
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center"
+                    >
+                      <InvoiceExportMenu
+                        invoice={invoice}
+                        buttonVariant="ghost"
+                        buttonSize="sm"
+                        align="right"
+                      />
+                    </div>
 
                     <button
                       type="button"
