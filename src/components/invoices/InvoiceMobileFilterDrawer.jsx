@@ -193,29 +193,34 @@ export default function InvoiceMobileFilterDrawer({
 
           {/* 4. Customer Filter */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400 font-semibold block">
+            <label className="text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold block">
               Customer
             </label>
             <div className="relative">
               <select
                 value={customerFilter}
                 onChange={(e) => onCustomerFilterChange(e.target.value)}
-                className="w-full px-3 py-2.5 text-xs rounded-lg border border-slate-200 dark:border-[#27272a] bg-slate-50 dark:bg-[#191a1c] text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer appearance-none pr-8"
+                className={[
+                  "w-full h-10 pl-3 pr-8 text-xs font-semibold rounded-lg border appearance-none transition-all cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
+                  customerFilter !== "all"
+                    ? "bg-cyan-50 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 ring-1 ring-cyan-500/20"
+                    : "bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-slate-200 border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
+                ].join(" ")}
               >
-                <option value="all" className="dark:bg-[#121314]">
+                <option value="all" className="dark:bg-[#191b26]">
                   All Customers
                 </option>
                 {customers.map((c) => (
                   <option
                     key={c.id || c.customerCode}
                     value={c.id || c.customerCode}
-                    className="dark:bg-[#121314]"
+                    className="dark:bg-[#191b26]"
                   >
                     {c.name} ({c.customerCode})
                   </option>
                 ))}
               </select>
-              <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-zinc-500 pointer-events-none">
+              <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-400 pointer-events-none">
                 expand_more
               </span>
             </div>

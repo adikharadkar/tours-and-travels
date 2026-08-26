@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export default function Dropdown({
   trigger,
@@ -8,118 +9,171 @@ export default function Dropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState("bottom");
+  const [position, setPosition] = useState({
+    top: 0,
+    left: 0,
+  });
 
   const dropdownRef = useRef(null);
   const menuRef = useRef(null);
+
+  const updatePosition = useCallback(() => {
+    const triggerElement = dropdownRef.current;
+    const menuElement = menuRef.current;
+
+    if (!triggerElement || !menuElement) {
+      return;
+    }
+
+    const triggerRect = triggerElement.getBoundingClientRect();
+    const menuRect = menuElement.getBoundingClientRect();
+
+    const gap = 8;
+    const viewportPadding = 8;
+
+    const spaceBelow = window.innerHeight - triggerRect.bottom;
+    const spaceAbove = triggerRect.top;
+
+    const shouldOpenAbove =
+      spaceBelow < menuRect.height + gap && spaceAbove >= menuRect.height + gap;
+
+    const nextPlacement = shouldOpenAbove ? "top" : "bottom";
+
+    setPlacement(nextPlacement);
+
+    let top =
+      nextPlacement === "top"
+        ? triggerRect.top - menuRect.height - gap
+        : triggerRect.bottom + gap;
+
+    let left =
+      align === "right" ? triggerRect.right - menuRect.width : triggerRect.left;
+
+    // Keep the menu inside the viewport horizontally.
+    const maxLeft = Math.max(
+      viewportPadding,
+      window.innerWidth - menuRect.width - viewportPadding,
+    );
+
+    left = Math.min(Math.max(left, viewportPadding), maxLeft);
+
+    // Keep the menu inside the viewport vertically.
+    const maxTop = Math.max(
+      viewportPadding,
+      window.innerHeight - menuRect.height - viewportPadding,
+    );
+
+    top = Math.min(Math.max(top, viewportPadding), maxTop);
+
+    setPosition({
+      top,
+      left,
+    });
+  }, [align]);
 
   useEffect(() => {
     if (!open) {
       return undefined;
     }
 
-    function updatePlacement() {
-      const triggerElement = dropdownRef.current;
+    const frame = requestAnimationFrame(updatePosition);
 
-      const menuElement = menuRef.current;
-
-      if (!triggerElement || !menuElement) {
-        return;
-      }
-
-      const triggerRect = triggerElement.getBoundingClientRect();
-
-      const menuRect = menuElement.getBoundingClientRect();
-
-      const spaceBelow = window.innerHeight - triggerRect.bottom;
-
-      const spaceAbove = triggerRect.top;
-
-      const shouldOpenAbove =
-        spaceBelow < menuRect.height + 8 && spaceAbove >= menuRect.height + 8;
-
-      setPlacement(shouldOpenAbove ? "top" : "bottom");
-    }
-
-    requestAnimationFrame(updatePlacement);
-
-    window.addEventListener("resize", updatePlacement);
-
-    window.addEventListener("scroll", updatePlacement, true);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
 
     return () => {
-      window.removeEventListener("resize", updatePlacement);
+      cancelAnimationFrame(frame);
 
-      window.removeEventListener("scroll", updatePlacement, true);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [open]);
+  }, [open, updatePosition]);
 
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setOpen(false);
-      }
+    if (!open) {
+      return undefined;
     }
 
-    function handleKeyDown(event) {
+    const handleOutsideClick = (event) => {
+      const triggerElement = dropdownRef.current;
+      const menuElement = menuRef.current;
+
+      const clickedTrigger = triggerElement?.contains(event.target);
+
+      const clickedMenu = menuElement?.contains(event.target);
+
+      if (!clickedTrigger && !clickedMenu) {
+        setOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         setOpen(false);
       }
-    }
+    };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handleOutsideClick);
 
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("mousedown", handleOutsideClick);
 
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [open]);
 
-  function handleTriggerClick() {
+  const handleTriggerClick = () => {
     setOpen((current) => !current);
-  }
+  };
 
-  function handleItemClick() {
+  const handleItemClick = () => {
     setOpen(false);
-  }
-
-  const alignmentClass = align === "right" ? "right-0" : "left-0";
-
-  const placementClass =
-    placement === "top" ? "bottom-full mb-2" : "top-full mt-2";
+  };
 
   return (
-    <div
-      ref={dropdownRef}
-      className={["relative inline-block", className].join(" ")}
-    >
+    <>
+      {/* Trigger stays in its original DOM position */}
       <div
-        onClick={handleTriggerClick}
-        aria-expanded={open}
-        aria-haspopup="menu"
+        ref={dropdownRef}
+        className={["relative inline-block", className].join(" ")}
       >
-        {trigger}
+        <div
+          onClick={handleTriggerClick}
+          aria-expanded={open}
+          aria-haspopup="menu"
+        >
+          {trigger}
+        </div>
       </div>
 
-      {open && (
-        <div
-          ref={menuRef}
-          role="menu"
-          className={[
-            "absolute z-50 min-w-48",
-            "rounded-xl border border-slate-200 dark:border-[#262837]",
-            "bg-white dark:bg-[#161822] p-1.5 shadow-xl shadow-slate-900/10 dark:shadow-black/50",
-            alignmentClass,
-            placementClass,
-          ].join(" ")}
-          onClick={handleItemClick}
-        >
-          {children}
-        </div>
-      )}
-    </div>
+      {/* Menu is rendered at document.body level so table overflow
+          cannot clip it. */}
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            className={[
+              "fixed z-[9999] min-w-48",
+              "rounded-xl border border-slate-200 dark:border-[#262837]",
+              "bg-white dark:bg-[#161822]",
+              "p-1.5",
+              "shadow-xl shadow-slate-900/10 dark:shadow-black/50",
+            ].join(" ")}
+            style={{
+              top: `${position.top}px`,
+              left: `${position.left}px`,
+            }}
+            data-placement={placement}
+            onClick={handleItemClick}
+          >
+            {children}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
@@ -139,7 +193,8 @@ export function DropdownItem({
         "flex w-full items-center rounded-lg px-3 py-2 text-xs font-medium",
         "text-left text-slate-700 dark:text-slate-200",
         "transition-colors cursor-pointer",
-        "hover:bg-slate-100 dark:hover:bg-[#202330] hover:text-slate-900 dark:hover:text-white",
+        "hover:bg-slate-100 dark:hover:bg-[#202330]",
+        "hover:text-slate-900 dark:hover:text-white",
         "focus-visible:outline-none",
         "focus-visible:ring-2 focus-visible:ring-primary/40",
         "disabled:pointer-events-none disabled:opacity-50",

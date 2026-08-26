@@ -78,26 +78,31 @@ export default function InvoiceToolbar({
         >
           {/* Date preset selector */}
           <div className="relative flex items-center">
-            <span className="material-symbols-outlined absolute left-2.5 text-[16px] text-slate-400 dark:text-zinc-500 pointer-events-none">
+            <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400 dark:text-slate-400 pointer-events-none select-none">
               calendar_today
             </span>
             <select
               value={datePreset}
               onChange={(e) => onDatePresetChange(e.target.value)}
               aria-label="Date Range Filter"
-              className="pl-8 pr-7 py-1.5 text-xs font-medium rounded-md bg-white dark:bg-[#121314] border border-slate-200 dark:border-[#27272a] text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer appearance-none"
+              className={[
+                "h-9 pl-8 pr-8 py-1.5 text-xs font-semibold rounded-lg border appearance-none transition-all cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
+                datePreset !== "all" && datePreset !== "last_30_days"
+                  ? "bg-cyan-50 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 ring-1 ring-cyan-500/20 shadow-xs"
+                  : "bg-slate-50 dark:bg-[#191b26] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
+              ].join(" ")}
             >
               {DATE_PRESET_OPTIONS.map((opt) => (
                 <option
                   key={opt.value}
                   value={opt.value}
-                  className="dark:bg-[#1f2021]"
+                  className="dark:bg-[#191b26]"
                 >
                   {opt.label}
                 </option>
               ))}
             </select>
-            <span className="material-symbols-outlined absolute right-2 text-[14px] text-slate-400 dark:text-zinc-500 pointer-events-none">
+            <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-400 pointer-events-none select-none">
               expand_more
             </span>
           </div>
@@ -109,16 +114,16 @@ export default function InvoiceToolbar({
             aria-expanded={isMoreOpen}
             aria-label="More Filters"
             className={[
-              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-all cursor-pointer",
+              "h-9 flex items-center gap-1.5 px-3.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer select-none",
               isMoreOpen || activeFilterCount > 0
-                ? "bg-slate-100 dark:bg-[#1f2021] text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-500/50"
-                : "bg-white dark:bg-[#121314] text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-[#27272a] hover:bg-slate-50 dark:hover:bg-[#1a1b1c]",
+                ? "bg-cyan-50 text-cyan-800 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 shadow-xs ring-1 ring-cyan-500/20"
+                : "bg-slate-50 dark:bg-[#191b26] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
             ].join(" ")}
           >
             <span className="material-symbols-outlined text-[16px]">tune</span>
             <span>More</span>
             {activeFilterCount > 0 && (
-              <span className="flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-indigo-600 text-white text-[10px] font-bold">
+              <span className="flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-cyan-600 text-white text-[10px] font-bold">
                 {activeFilterCount}
               </span>
             )}
@@ -126,9 +131,9 @@ export default function InvoiceToolbar({
 
           {/* More Filters Dropdown Menu */}
           {isMoreOpen && (
-            <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-md bg-white dark:bg-[#1c1c1e] border border-slate-200 dark:border-[#27272a] shadow-xl p-4 z-40 flex flex-col gap-3.5">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
-                <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">
+            <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-xl bg-white dark:bg-[#161822] border border-slate-200/90 dark:border-[#262837] shadow-xl p-4 z-40 flex flex-col gap-3.5">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#262837] pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">
                   Filter Invoices
                 </span>
                 {activeFilterCount > 0 && (
@@ -138,105 +143,138 @@ export default function InvoiceToolbar({
                       onResetFilters();
                       setIsMoreOpen(false);
                     }}
-                    className="text-xs text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                    className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer flex items-center gap-1"
                   >
-                    Reset all
+                    <span className="material-symbols-outlined text-[14px]">
+                      refresh
+                    </span>
+                    <span>Reset all</span>
                   </button>
                 )}
               </div>
 
               {/* Payment Status Filter */}
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">
                   Payment Status
                 </label>
-                <select
-                  value={paymentStatus}
-                  onChange={(e) => onPaymentStatusChange(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-zinc-700 bg-white dark:bg-[#121314] text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                >
-                  {PAYMENT_STATUSES.map((status) => (
-                    <option
-                      key={status.value}
-                      value={status.value}
-                      className="dark:bg-[#1c1c1e]"
-                    >
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={paymentStatus}
+                    onChange={(e) => onPaymentStatusChange(e.target.value)}
+                    className={[
+                      "w-full h-9 pl-3 pr-8 text-xs font-semibold rounded-lg border appearance-none transition-all cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
+                      paymentStatus !== "all"
+                        ? "bg-cyan-50 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 ring-1 ring-cyan-500/20"
+                        : "bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-slate-200 border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
+                    ].join(" ")}
+                  >
+                    {PAYMENT_STATUSES.map((status) => (
+                      <option
+                        key={status.value}
+                        value={status.value}
+                        className="dark:bg-[#191b26]"
+                      >
+                        {status.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-400 pointer-events-none">
+                    expand_more
+                  </span>
+                </div>
               </div>
 
               {/* Document Status Filter */}
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">
                   Document Status
                 </label>
-                <select
-                  value={documentStatus}
-                  onChange={(e) => onDocumentStatusChange(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-zinc-700 bg-white dark:bg-[#121314] text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                >
-                  {DOCUMENT_STATUSES.map((status) => (
-                    <option
-                      key={status.value}
-                      value={status.value}
-                      className="dark:bg-[#1c1c1e]"
-                    >
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={documentStatus}
+                    onChange={(e) => onDocumentStatusChange(e.target.value)}
+                    className={[
+                      "w-full h-9 pl-3 pr-8 text-xs font-semibold rounded-lg border appearance-none transition-all cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
+                      documentStatus !== "all"
+                        ? "bg-cyan-50 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 ring-1 ring-cyan-500/20"
+                        : "bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-slate-200 border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
+                    ].join(" ")}
+                  >
+                    {DOCUMENT_STATUSES.map((status) => (
+                      <option
+                        key={status.value}
+                        value={status.value}
+                        className="dark:bg-[#191b26]"
+                      >
+                        {status.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-400 pointer-events-none">
+                    expand_more
+                  </span>
+                </div>
               </div>
 
               {/* Customer Filter */}
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">
                   Customer
                 </label>
-                <select
-                  value={customerFilter}
-                  onChange={(e) => onCustomerFilterChange(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-zinc-700 bg-white dark:bg-[#121314] text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                >
-                  <option value="all" className="dark:bg-[#1c1c1e]">
-                    All Customers
-                  </option>
-                  {customers.map((c) => (
-                    <option
-                      key={c.id || c.customerCode}
-                      value={c.id || c.customerCode}
-                      className="dark:bg-[#1c1c1e]"
-                    >
-                      {c.name} ({c.customerCode})
+                <div className="relative">
+                  <select
+                    value={customerFilter}
+                    onChange={(e) => onCustomerFilterChange(e.target.value)}
+                    className={[
+                      "w-full h-9 pl-3 pr-8 text-xs font-semibold rounded-lg border appearance-none transition-all cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
+                      customerFilter !== "all"
+                        ? "bg-cyan-50 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 ring-1 ring-cyan-500/20"
+                        : "bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-slate-200 border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
+                    ].join(" ")}
+                  >
+                    <option value="all" className="dark:bg-[#191b26]">
+                      All Customers
                     </option>
-                  ))}
-                </select>
+                    {customers.map((c) => (
+                      <option
+                        key={c.id || c.customerCode}
+                        value={c.id || c.customerCode}
+                        className="dark:bg-[#191b26]"
+                      >
+                        {c.name} ({c.customerCode})
+                      </option>
+                    ))}
+                  </select>
+                  <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-400 pointer-events-none">
+                    expand_more
+                  </span>
+                </div>
               </div>
 
               {/* Custom Date Range if Custom is selected */}
               {datePreset === "custom" && (
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-slate-500 dark:text-zinc-400">
+                    <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       From Date
                     </label>
                     <input
                       type="date"
                       value={customStartDate}
                       onChange={(e) => onCustomStartDateChange(e.target.value)}
-                      className="px-2 py-1 text-xs rounded border border-slate-200 dark:border-zinc-700 bg-white dark:bg-[#121314] text-slate-800 dark:text-zinc-200 focus:outline-none"
+                      className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-[#262837] bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-slate-500 dark:text-zinc-400">
+                    <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       To Date
                     </label>
                     <input
                       type="date"
                       value={customEndDate}
                       onChange={(e) => onCustomEndDateChange(e.target.value)}
-                      className="px-2 py-1 text-xs rounded border border-slate-200 dark:border-zinc-700 bg-white dark:bg-[#121314] text-slate-800 dark:text-zinc-200 focus:outline-none"
+                      className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-[#262837] bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                     />
                   </div>
                 </div>
@@ -246,7 +284,7 @@ export default function InvoiceToolbar({
                 <button
                   type="button"
                   onClick={() => setIsMoreOpen(false)}
-                  className="px-3 py-1 text-xs font-semibold rounded bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 cursor-pointer"
+                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white transition-all cursor-pointer shadow-xs"
                 >
                   Apply
                 </button>
@@ -260,7 +298,7 @@ export default function InvoiceToolbar({
       <div className="flex flex-wrap items-center gap-3">
         {/* Search input */}
         <div className="relative flex-1 min-w-[240px] max-w-md">
-          <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-zinc-500 pointer-events-none">
+          <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-400 pointer-events-none">
             search
           </span>
           <input
@@ -268,7 +306,7 @@ export default function InvoiceToolbar({
             placeholder="Search by invoice #, customer, GSTIN, trip code, route..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-9 pr-8 py-1.5 text-xs rounded-md bg-white dark:bg-[#121314] border border-slate-200 dark:border-[#27272a] text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+            className="w-full pl-9 pr-8 py-2 text-xs font-medium rounded-lg bg-slate-50 dark:bg-[#191b26] border border-slate-200 dark:border-[#262837] text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 shadow-2xs transition-all"
           />
           {searchQuery && (
             <button

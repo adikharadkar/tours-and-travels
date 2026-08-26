@@ -40,6 +40,10 @@ describe("InvoiceToolbar", () => {
     vi.clearAllMocks();
   });
 
+  // ---------------------------------------------------------------------------
+  // BASIC RENDERING
+  // ---------------------------------------------------------------------------
+
   it("renders the search input", () => {
     render(<InvoiceToolbar {...createProps()} />);
 
@@ -70,27 +74,51 @@ describe("InvoiceToolbar", () => {
     ).toBeInTheDocument();
   });
 
+  // ---------------------------------------------------------------------------
+  // DOCUMENT TYPE
+  // ---------------------------------------------------------------------------
+
+  it("renders the document type controls", () => {
+    render(<InvoiceToolbar {...createProps()} />);
+
+    expect(
+      screen.getByRole("button", { name: "All Invoices" }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("button", { name: "Tax Invoice" }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("button", { name: "Consolidated" }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("button", { name: "Proforma" }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("button", { name: "Credit Note" }),
+    ).toBeInTheDocument();
+  });
+
   it("calls onDocumentTypeChange when a document type is selected", () => {
     const props = createProps();
 
     render(<InvoiceToolbar {...props} />);
 
-    const buttons = screen.getAllByRole("button");
-
-    // Find a document type button from the available buttons.
-    const documentTypeButton = buttons.find(
-      (button) =>
-        button.textContent &&
-        button.textContent.trim() !== "More" &&
-        button.textContent.trim() !== "Clear filters",
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Tax Invoice",
+      }),
     );
 
-    expect(documentTypeButton).toBeInTheDocument();
-
-    fireEvent.click(documentTypeButton);
-
-    expect(props.onDocumentTypeChange).toHaveBeenCalledTimes(1);
+    expect(props.onDocumentTypeChange).toHaveBeenCalledWith("tax_invoice");
   });
+
+  // ---------------------------------------------------------------------------
+  // SEARCH
+  // ---------------------------------------------------------------------------
 
   it("calls onSearchChange when the search input changes", () => {
     const props = createProps();
@@ -164,6 +192,10 @@ describe("InvoiceToolbar", () => {
     expect(props.onSearchChange).toHaveBeenCalledWith("");
   });
 
+  // ---------------------------------------------------------------------------
+  // DATE FILTER
+  // ---------------------------------------------------------------------------
+
   it("calls onDatePresetChange when date range changes", () => {
     const props = createProps();
 
@@ -182,6 +214,10 @@ describe("InvoiceToolbar", () => {
     expect(props.onDatePresetChange).toHaveBeenCalledWith("custom");
   });
 
+  // ---------------------------------------------------------------------------
+  // MORE FILTERS
+  // ---------------------------------------------------------------------------
+
   it("opens the More Filters dropdown", () => {
     render(<InvoiceToolbar {...createProps()} />);
 
@@ -194,7 +230,6 @@ describe("InvoiceToolbar", () => {
     fireEvent.click(moreButton);
 
     expect(moreButton).toHaveAttribute("aria-expanded", "true");
-
     expect(screen.getByText("Filter Invoices")).toBeInTheDocument();
   });
 
@@ -226,11 +261,13 @@ describe("InvoiceToolbar", () => {
     );
 
     expect(screen.getByText("Payment Status")).toBeInTheDocument();
-
     expect(screen.getByText("Document Status")).toBeInTheDocument();
-
     expect(screen.getByText("Customer")).toBeInTheDocument();
   });
+
+  // ---------------------------------------------------------------------------
+  // PAYMENT STATUS
+  // ---------------------------------------------------------------------------
 
   it("calls onPaymentStatusChange when payment status changes", () => {
     const props = createProps();
@@ -245,10 +282,13 @@ describe("InvoiceToolbar", () => {
 
     const selects = screen.getAllByRole("combobox");
 
-    // Date Range + Payment Status + Document Status + Customer
-    expect(selects.length).toBeGreaterThanOrEqual(4);
+    const paymentStatusSelect = selects.find((select) =>
+      Array.from(select.options).some((option) => option.value === "paid"),
+    );
 
-    fireEvent.change(selects[1], {
+    expect(paymentStatusSelect).toBeDefined();
+
+    fireEvent.change(paymentStatusSelect, {
       target: {
         value: "paid",
       },
@@ -256,6 +296,10 @@ describe("InvoiceToolbar", () => {
 
     expect(props.onPaymentStatusChange).toHaveBeenCalledWith("paid");
   });
+
+  // ---------------------------------------------------------------------------
+  // DOCUMENT STATUS
+  // ---------------------------------------------------------------------------
 
   it("calls onDocumentStatusChange when document status changes", () => {
     const props = createProps();
@@ -270,7 +314,13 @@ describe("InvoiceToolbar", () => {
 
     const selects = screen.getAllByRole("combobox");
 
-    fireEvent.change(selects[2], {
+    const documentStatusSelect = selects.find((select) =>
+      Array.from(select.options).some((option) => option.value === "issued"),
+    );
+
+    expect(documentStatusSelect).toBeDefined();
+
+    fireEvent.change(documentStatusSelect, {
       target: {
         value: "issued",
       },
@@ -278,6 +328,10 @@ describe("InvoiceToolbar", () => {
 
     expect(props.onDocumentStatusChange).toHaveBeenCalledWith("issued");
   });
+
+  // ---------------------------------------------------------------------------
+  // CUSTOMER FILTER
+  // ---------------------------------------------------------------------------
 
   it("renders customer options", () => {
     const customers = [
@@ -339,9 +393,17 @@ describe("InvoiceToolbar", () => {
       }),
     );
 
-    const selects = screen.getAllByRole("combobox");
+    const customerSelect = screen
+      .getAllByRole("combobox")
+      .find((select) =>
+        Array.from(select.options).some(
+          (option) => option.value === "customer-1",
+        ),
+      );
 
-    fireEvent.change(selects[3], {
+    expect(customerSelect).toBeDefined();
+
+    fireEvent.change(customerSelect, {
       target: {
         value: "customer-1",
       },
@@ -349,6 +411,10 @@ describe("InvoiceToolbar", () => {
 
     expect(props.onCustomerFilterChange).toHaveBeenCalledWith("customer-1");
   });
+
+  // ---------------------------------------------------------------------------
+  // ACTIVE FILTER COUNT / RESET
+  // ---------------------------------------------------------------------------
 
   it("shows the active filter count on More Filters", () => {
     render(
@@ -379,7 +445,7 @@ describe("InvoiceToolbar", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "Reset all",
+        name: /Reset all/,
       }),
     ).toBeInTheDocument();
   });
@@ -415,7 +481,7 @@ describe("InvoiceToolbar", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Reset all",
+        name: /Reset all/,
       }),
     );
 
@@ -437,14 +503,14 @@ describe("InvoiceToolbar", () => {
       }),
     );
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Reset all",
-      }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Reset all/i }));
 
     expect(screen.queryByText("Filter Invoices")).not.toBeInTheDocument();
   });
+
+  // ---------------------------------------------------------------------------
+  // CUSTOM DATE RANGE
+  // ---------------------------------------------------------------------------
 
   it("shows custom date fields when date preset is custom", () => {
     render(
@@ -462,10 +528,11 @@ describe("InvoiceToolbar", () => {
     );
 
     expect(screen.getByText("From Date")).toBeInTheDocument();
-
     expect(screen.getByText("To Date")).toBeInTheDocument();
 
-    expect(screen.getAllByDisplayValue("").length).toBeGreaterThanOrEqual(2);
+    const dateInputs = document.querySelectorAll('input[type="date"]');
+
+    expect(dateInputs.length).toBeGreaterThanOrEqual(2);
   });
 
   it("does not show custom date fields for non-custom date preset", () => {
@@ -501,11 +568,11 @@ describe("InvoiceToolbar", () => {
       }),
     );
 
-    const dateInputs = screen.getAllByDisplayValue("");
+    const dateInputs = document.querySelectorAll('input[type="date"]');
 
-    const startDateInput = dateInputs.find((input) => input.type === "date");
+    expect(dateInputs.length).toBeGreaterThanOrEqual(2);
 
-    fireEvent.change(startDateInput, {
+    fireEvent.change(dateInputs[0], {
       target: {
         value: "2026-08-01",
       },
@@ -527,12 +594,11 @@ describe("InvoiceToolbar", () => {
       }),
     );
 
-    // The second date input is the end date.
-    const allDateInputs = screen
-      .getAllByDisplayValue("")
-      .filter((input) => input.type === "date");
+    const dateInputs = document.querySelectorAll('input[type="date"]');
 
-    fireEvent.change(allDateInputs[1], {
+    expect(dateInputs.length).toBeGreaterThanOrEqual(2);
+
+    fireEvent.change(dateInputs[1], {
       target: {
         value: "2026-08-31",
       },
@@ -562,6 +628,10 @@ describe("InvoiceToolbar", () => {
 
     expect(screen.getByDisplayValue("2026-08-31")).toBeInTheDocument();
   });
+
+  // ---------------------------------------------------------------------------
+  // ACTIVE FILTER TAGS
+  // ---------------------------------------------------------------------------
 
   it("shows payment status active filter tag", () => {
     render(
@@ -612,7 +682,11 @@ describe("InvoiceToolbar", () => {
 
     const paymentTag = screen.getByText("Payment: paid");
 
-    fireEvent.click(paymentTag.parentElement.querySelector("button"));
+    const removeButton = paymentTag.parentElement?.querySelector("button");
+
+    expect(removeButton).toBeTruthy();
+
+    fireEvent.click(removeButton);
 
     expect(props.onPaymentStatusChange).toHaveBeenCalledWith("all");
   });
@@ -627,7 +701,11 @@ describe("InvoiceToolbar", () => {
 
     const documentTag = screen.getByText("Doc: issued");
 
-    fireEvent.click(documentTag.parentElement.querySelector("button"));
+    const removeButton = documentTag.parentElement?.querySelector("button");
+
+    expect(removeButton).toBeTruthy();
+
+    fireEvent.click(removeButton);
 
     expect(props.onDocumentStatusChange).toHaveBeenCalledWith("all");
   });
@@ -642,10 +720,18 @@ describe("InvoiceToolbar", () => {
 
     const customerTag = screen.getByText("Customer");
 
-    fireEvent.click(customerTag.parentElement.querySelector("button"));
+    const removeButton = customerTag.parentElement?.querySelector("button");
+
+    expect(removeButton).toBeTruthy();
+
+    fireEvent.click(removeButton);
 
     expect(props.onCustomerFilterChange).toHaveBeenCalledWith("all");
   });
+
+  // ---------------------------------------------------------------------------
+  // CLEAR FILTERS
+  // ---------------------------------------------------------------------------
 
   it("calls onResetFilters when Clear filters is clicked", () => {
     const props = createProps({
@@ -663,6 +749,10 @@ describe("InvoiceToolbar", () => {
 
     expect(props.onResetFilters).toHaveBeenCalledTimes(1);
   });
+
+  // ---------------------------------------------------------------------------
+  // DROPDOWN BEHAVIOR
+  // ---------------------------------------------------------------------------
 
   it("closes More Filters when clicking outside", () => {
     render(<InvoiceToolbar {...createProps()} />);
@@ -689,7 +779,9 @@ describe("InvoiceToolbar", () => {
       }),
     );
 
-    fireEvent.mouseDown(screen.getByText("Filter Invoices"));
+    const filterTitle = screen.getByText("Filter Invoices");
+
+    fireEvent.mouseDown(filterTitle);
 
     expect(screen.getByText("Filter Invoices")).toBeInTheDocument();
   });
@@ -711,6 +803,10 @@ describe("InvoiceToolbar", () => {
 
     expect(screen.queryByText("Filter Invoices")).not.toBeInTheDocument();
   });
+
+  // ---------------------------------------------------------------------------
+  // ACTIVE FILTER COUNT
+  // ---------------------------------------------------------------------------
 
   it("renders the active filter count only when greater than zero", () => {
     const { rerender } = render(

@@ -10,6 +10,7 @@ import {
 } from "../ui/Modal";
 import Button from "../ui/Button";
 import { getVehicleDocumentStatus } from "../../utils/vehicleDocumentStatus";
+import { getVehicleOperationalState } from "../../utils/vehicleOperationalStatus";
 import {
   VEHICLE_TYPE_LABELS,
   FUEL_TYPE_LABELS,
@@ -59,9 +60,12 @@ function DetailSection({ title, children, className = "" }) {
 }
 
 const STATUS_BADGES = {
-  valid: "bg-success/10 text-success border border-success/20",
-  expiring_soon: "bg-warning/10 text-warning border border-warning/20",
-  expired: "bg-error/10 text-error border border-error/20",
+  valid:
+    "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20",
+  expiring_soon:
+    "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
+  expired:
+    "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20",
   not_provided: "bg-muted/20 text-muted border border-border",
 };
 
@@ -112,7 +116,7 @@ function DocItem({ name, certNo, expiryDate, evaluation }) {
 }
 
 const VehicleDetailsModal = forwardRef(function VehicleDetailsModal(
-  { open, vehicle, onClose, onEdit },
+  { open, vehicle, trips = [], onClose, onEdit },
   ref,
 ) {
   if (!vehicle) {
@@ -120,6 +124,8 @@ const VehicleDetailsModal = forwardRef(function VehicleDetailsModal(
   }
 
   const docStatus = getVehicleDocumentStatus(vehicle);
+  const operational = getVehicleOperationalState(vehicle, trips);
+
   const typeLabel =
     VEHICLE_TYPE_LABELS[vehicle.vehicleType] || vehicle.vehicleType || "—";
   const fuelLabel =
@@ -144,10 +150,15 @@ const VehicleDetailsModal = forwardRef(function VehicleDetailsModal(
             {" · "}
             {typeLabel}
             {" · "}
-            {vehicle.isActive ? (
+            {vehicle.isActive !== false ? (
               <span className="text-success font-medium">Active</span>
             ) : (
               <span className="text-muted font-medium">Inactive</span>
+            )}
+            {operational.operationalStatus === "on_trip" && (
+              <span className="ml-2 font-medium text-purple-600 dark:text-purple-400">
+                · On Trip ({operational.subtext})
+              </span>
             )}
           </ModalDescription>
         </div>
@@ -183,15 +194,69 @@ const VehicleDetailsModal = forwardRef(function VehicleDetailsModal(
             <DetailItem label="Status">
               <span
                 className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  vehicle.isActive
+                  vehicle.isActive !== false
                     ? "bg-success/10 text-success border border-success/20"
                     : "bg-muted/20 text-muted border border-border"
                 }`}
               >
-                {vehicle.isActive ? "Active" : "Inactive"}
+                {vehicle.isActive !== false ? "Active" : "Inactive"}
               </span>
             </DetailItem>
           </DetailSection>
+
+          {/* Operational Availability & Trip Context if available */}
+          {trips && trips.length > 0 && (
+            <DetailSection title="Operational Availability & Trips">
+              <DetailItem label="Current Availability">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    operational.operationalStatus === "available"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                      : operational.operationalStatus === "on_trip"
+                        ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
+                        : "bg-slate-500/10 text-slate-500 border border-slate-500/20"
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      operational.operationalStatus === "available"
+                        ? "bg-emerald-500"
+                        : operational.operationalStatus === "on_trip"
+                          ? "bg-purple-500 animate-pulse"
+                          : "bg-slate-400"
+                    }`}
+                  />
+                  {operational.label} ({operational.subtext})
+                </span>
+              </DetailItem>
+
+              {operational.activeTrip && (
+                <div className="col-span-full rounded-md border border-purple-500/30 bg-purple-500/5 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-purple-700 dark:text-purple-300 font-mono">
+                      {operational.activeTrip.tripCode} (Active Assignment)
+                    </span>
+                    <span className="text-xs text-muted">
+                      Driver: {operational.activeTrip.driverName || "Assigned"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-foreground">
+                    {operational.activeTrip.pickupLocation} →{" "}
+                    {operational.activeTrip.dropLocation}
+                  </p>
+                </div>
+              )}
+
+              {operational.recentTrips &&
+                operational.recentTrips.length > 0 &&
+                !operational.activeTrip && (
+                  <DetailItem
+                    label="Most Recent Completed Trip"
+                    value={`${operational.recentTrips[0].tripCode} (${operational.recentTrips[0].pickupLocation} → ${operational.recentTrips[0].dropLocation})`}
+                  />
+                )}
+            </DetailSection>
+          )}
 
           {/* Ownership Information */}
           <DetailSection title="Ownership Information">
