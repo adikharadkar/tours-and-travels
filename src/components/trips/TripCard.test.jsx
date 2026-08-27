@@ -196,7 +196,7 @@ describe("TripCard", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
-  it("renders Active/Edit actions for confirmed trips", () => {
+  it("renders only View and 3-dots action buttons in the action bar across statuses", () => {
     render(<TripCard {...defaultProps} />);
 
     expect(
@@ -207,76 +207,20 @@ describe("TripCard", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "Edit",
+        name: "Trip actions",
       }),
     ).toBeInTheDocument();
 
-    expect(
-      screen.getByRole("button", {
-        name: "Start",
-      }),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByRole("button", {
-        name: "Cancel",
-      }),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Confirm",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Complete",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Delete",
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("renders Confirm and Delete actions for draft trips", () => {
-    const draftTrip = {
-      ...trip,
-      status: "draft",
-    };
-
-    render(<TripCard {...defaultProps} trip={draftTrip} />);
-
-    expect(
-      screen.getByRole("button", {
-        name: "Confirm",
-      }),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByRole("button", {
-        name: "Delete",
-      }),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByRole("button", {
-        name: "Edit",
-      }),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByRole("button", {
-        name: "Cancel",
-      }),
-    ).toBeInTheDocument();
-
+    // Contextual secondary action buttons are now safely in the actions drawer
     expect(
       screen.queryByRole("button", {
         name: "Start",
+      }),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.queryByRole("button", {
+        name: "Edit",
       }),
     ).not.toBeInTheDocument();
 
@@ -287,46 +231,7 @@ describe("TripCard", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders Complete action for in-progress trips", () => {
-    const inProgressTrip = {
-      ...trip,
-      status: "in_progress",
-    };
-
-    render(<TripCard {...defaultProps} trip={inProgressTrip} />);
-
-    expect(
-      screen.getByRole("button", {
-        name: "Complete",
-      }),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByRole("button", {
-        name: "Edit",
-      }),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Start",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Confirm",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Delete",
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("hides Edit and lifecycle actions for completed trips", () => {
+  it("renders View and 3-dots actions for completed and draft trips", () => {
     const completedTrip = {
       ...trip,
       status: "completed",
@@ -341,127 +246,10 @@ describe("TripCard", () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.queryByRole("button", {
-        name: "Edit",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Confirm",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Start",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Complete",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Cancel",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Delete",
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("hides Edit and lifecycle actions for cancelled trips", () => {
-    const cancelledTrip = {
-      ...trip,
-      status: "cancelled",
-    };
-
-    render(<TripCard {...defaultProps} trip={cancelledTrip} />);
-
-    expect(
       screen.getByRole("button", {
-        name: "View",
+        name: "Trip actions",
       }),
     ).toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Edit",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Confirm",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Start",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Complete",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Cancel",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Delete",
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("does not render optional action buttons when callbacks are missing", () => {
-    const draftTrip = {
-      ...trip,
-      status: "draft",
-    };
-
-    render(
-      <TripCard
-        trip={draftTrip}
-        customer={customer}
-        vehicle={vehicle}
-        driver={driver}
-        onView={vi.fn()}
-        onEdit={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Confirm",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Cancel",
-      }),
-    ).not.toBeInTheDocument();
-
-    expect(
-      screen.queryByRole("button", {
-        name: "Delete",
-      }),
-    ).not.toBeInTheDocument();
   });
 
   it("adds highlight styles when highlighted is true", () => {
@@ -496,122 +284,34 @@ describe("TripCard", () => {
     expect(onView).toHaveBeenCalledWith(trip);
   });
 
-  it("calls onEdit with the trip when Edit is clicked", () => {
-    const onEdit = vi.fn();
+  it("renders the 3-dots actions button and triggers onOpenActions when clicked", () => {
+    const onOpenActions = vi.fn();
 
-    render(<TripCard {...defaultProps} onEdit={onEdit} />);
+    render(<TripCard {...defaultProps} onOpenActions={onOpenActions} />);
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Edit",
-      }),
-    );
+    const actionsBtn = screen.getByRole("button", {
+      name: "Trip actions",
+    });
+    expect(actionsBtn).toBeInTheDocument();
 
-    expect(onEdit).toHaveBeenCalledTimes(1);
+    fireEvent.click(actionsBtn);
 
-    expect(onEdit).toHaveBeenCalledWith(trip);
+    expect(onOpenActions).toHaveBeenCalledTimes(1);
+    expect(onOpenActions).toHaveBeenCalledWith(trip);
   });
 
-  it("calls onConfirm with the trip when Confirm is clicked", () => {
-    const onConfirm = vi.fn();
+  it("calls onMore as fallback when onOpenActions is not provided", () => {
+    const onMore = vi.fn();
 
-    const draftTrip = {
-      ...trip,
-      status: "draft",
-    };
+    render(<TripCard {...defaultProps} onMore={onMore} />);
 
-    render(
-      <TripCard {...defaultProps} trip={draftTrip} onConfirm={onConfirm} />,
-    );
+    const actionsBtn = screen.getByRole("button", {
+      name: "Trip actions",
+    });
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Confirm",
-      }),
-    );
+    fireEvent.click(actionsBtn);
 
-    expect(onConfirm).toHaveBeenCalledTimes(1);
-
-    expect(onConfirm).toHaveBeenCalledWith(draftTrip);
-  });
-
-  it("calls onStart with the trip when Start is clicked", () => {
-    const onStart = vi.fn();
-
-    render(<TripCard {...defaultProps} onStart={onStart} />);
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Start",
-      }),
-    );
-
-    expect(onStart).toHaveBeenCalledTimes(1);
-
-    expect(onStart).toHaveBeenCalledWith(trip);
-  });
-
-  it("calls onComplete with the trip when Complete is clicked", () => {
-    const onComplete = vi.fn();
-
-    const inProgressTrip = {
-      ...trip,
-      status: "in_progress",
-    };
-
-    render(
-      <TripCard
-        {...defaultProps}
-        trip={inProgressTrip}
-        onComplete={onComplete}
-      />,
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Complete",
-      }),
-    );
-
-    expect(onComplete).toHaveBeenCalledTimes(1);
-
-    expect(onComplete).toHaveBeenCalledWith(inProgressTrip);
-  });
-
-  it("calls onCancel with the trip when Cancel is clicked", () => {
-    const onCancel = vi.fn();
-
-    render(<TripCard {...defaultProps} onCancel={onCancel} />);
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Cancel",
-      }),
-    );
-
-    expect(onCancel).toHaveBeenCalledTimes(1);
-
-    expect(onCancel).toHaveBeenCalledWith(trip);
-  });
-
-  it("calls onDelete with the trip when Delete is clicked", () => {
-    const onDelete = vi.fn();
-
-    const draftTrip = {
-      ...trip,
-      status: "draft",
-    };
-
-    render(<TripCard {...defaultProps} trip={draftTrip} onDelete={onDelete} />);
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Delete",
-      }),
-    );
-
-    expect(onDelete).toHaveBeenCalledTimes(1);
-
-    expect(onDelete).toHaveBeenCalledWith(draftTrip);
+    expect(onMore).toHaveBeenCalledTimes(1);
+    expect(onMore).toHaveBeenCalledWith(trip);
   });
 });

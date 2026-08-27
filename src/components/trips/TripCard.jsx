@@ -27,13 +27,8 @@ export default function TripCard({
   vehicle,
   driver,
   onView,
-  onEdit,
-  onConfirm,
-  onStart,
-  onComplete,
-  onCancel,
-  onDelete,
-  onCreateInvoice,
+  onOpenActions,
+  onMore,
   highlighted = false,
 }) {
   const tripTypeLabel =
@@ -43,6 +38,14 @@ export default function TripCard({
     ? `${vehicle.vehicleNumber || vehicle.vehicleCode} (${vehicle.make || ""} ${vehicle.model || ""})`.trim()
     : "Vehicle";
   const driverText = driver?.name ? driver.name : "Driver";
+
+  const handleActionsClick = () => {
+    if (onOpenActions) {
+      onOpenActions(trip);
+    } else if (onMore) {
+      onMore(trip);
+    }
+  };
 
   return (
     <Card className={highlighted ? "ring-2 ring-primary/40 shadow-sm" : ""}>
@@ -119,102 +122,42 @@ export default function TripCard({
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-1.5 border-t border-border pt-3">
+        {/* Actions: ONLY View and 3 Dots Actions Button */}
+        <div className="mt-4 flex items-center justify-end gap-2 border-t border-border pt-3">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => onView?.(trip)}
+            aria-label="View"
+            className="text-xs inline-flex items-center gap-1.5 px-3 py-1.5"
+          >
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-[16px]"
+            >
+              visibility
+            </span>
+            <span>View</span>
+          </Button>
+
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => onView(trip)}
-            className="text-xs"
+            onClick={handleActionsClick}
+            aria-label="Trip actions"
+            title="More actions"
+            data-testid="trip-card-actions-btn"
+            className="h-8 w-8 p-0 inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#1f2230] text-slate-600 dark:text-slate-300 transition-colors"
           >
-            View
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-[18px]"
+            >
+              more_vert
+            </span>
           </Button>
-
-          {trip.status !== "completed" && trip.status !== "cancelled" && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => onEdit(trip)}
-              className="text-xs"
-            >
-              Edit
-            </Button>
-          )}
-
-          {trip.status === "completed" && onCreateInvoice && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => onCreateInvoice(trip)}
-              className="text-xs"
-            >
-              Generate Invoice
-            </Button>
-          )}
-
-          {trip.status === "draft" && onConfirm && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => onConfirm(trip)}
-              className="text-xs"
-            >
-              Confirm
-            </Button>
-          )}
-
-          {trip.status === "confirmed" && onStart && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => onStart(trip)}
-              className="text-xs"
-            >
-              Start
-            </Button>
-          )}
-
-          {trip.status === "in_progress" && onComplete && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => onComplete(trip)}
-              className="text-xs"
-            >
-              Complete
-            </Button>
-          )}
-
-          {(trip.status === "draft" || trip.status === "confirmed") &&
-            onCancel && (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => onCancel(trip)}
-                className="text-xs text-error hover:bg-error/10"
-              >
-                Cancel
-              </Button>
-            )}
-
-          {trip.status === "draft" && onDelete && (
-            <Button
-              type="button"
-              variant="danger"
-              size="sm"
-              onClick={() => onDelete(trip)}
-              className="text-xs"
-            >
-              Delete
-            </Button>
-          )}
         </div>
       </CardContent>
     </Card>
