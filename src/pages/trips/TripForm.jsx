@@ -2,14 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import Button from "../../components/ui/Button";
-import Card, {
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "../../components/ui/Card";
-import FormField from "../../components/ui/FormField";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
 import Textarea from "../../components/ui/Textarea";
@@ -23,6 +15,7 @@ import {
   PAYMENT_MODES,
   DISCOUNT_TYPES,
   TAX_TYPES,
+  PAYMENT_STATUS_LABELS,
 } from "../../constants/trips";
 import {
   calculateTripDuration,
@@ -127,6 +120,7 @@ export default function TripForm() {
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAdditionalCharges, setShowAdditionalCharges] = useState(false);
 
   const [allTrips, setAllTrips] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -182,6 +176,17 @@ export default function TripForm() {
           discountValue: existing.discountValue ?? "",
           advanceAmount: existing.advanceAmount ?? "",
         });
+
+        if (
+          existing.driverCharges ||
+          existing.tollCharges ||
+          existing.parkingCharges ||
+          existing.otherCharges ||
+          existing.extraKmCharges ||
+          existing.extraHourCharges
+        ) {
+          setShowAdditionalCharges(true);
+        }
       }
     } catch (err) {
       console.error("Failed to load form data:", err);
@@ -223,6 +228,11 @@ export default function TripForm() {
 
   const driverLicenseStatus = useMemo(
     () => (selectedDriver ? getDriverLicenseStatus(selectedDriver) : null),
+    [selectedDriver],
+  );
+
+  const driverEligibility = useMemo(
+    () => (selectedDriver ? isDriverEligible(selectedDriver) : true),
     [selectedDriver],
   );
 
@@ -290,6 +300,75 @@ export default function TripForm() {
     () => calculateTripAmount(formData),
     [formData],
   );
+
+  // Booking Readiness evaluations
+  const readiness = useMemo(() => {
+    const isCustomerAssigned = Boolean(formData.customerId && selectedCustomer);
+    const isRouteDefined = Boolean(
+      formData.pickupLocation?.trim() && formData.dropLocation?.trim(),
+    );
+    const isScheduleValid = Boolean(
+      formData.startDateTime &&
+      formData.endDateTime &&
+      durationCalculation.text !== "—" &&
+      durationCalculation.text !== "Invalid duration",
+    );
+    const isVehicleAvailable = Boolean(
+      formData.vehicleId &&
+      selectedVehicle &&
+      vehicleConflicts.length === 0 &&
+      selectedVehicle.isActive !== false,
+    );
+    const isDriverEligibleAndAvailable = Boolean(
+      formData.driverId &&
+      selectedDriver &&
+      driverConflicts.length === 0 &&
+      driverEligibility &&
+      selectedDriver.isActive !== false,
+    );
+    const isPricingCompleted = Boolean(
+      formData.rateType &&
+      formData.baseRate !== "" &&
+      Number(formData.baseRate) >= 0 &&
+      financialCalculations.totalAmount > 0,
+    );
+
+    const isAllReady =
+      isCustomerAssigned &&
+      isRouteDefined &&
+      isScheduleValid &&
+      isVehicleAvailable &&
+      isDriverEligibleAndAvailable &&
+      isPricingCompleted;
+
+    return {
+      isCustomerAssigned,
+      isRouteDefined,
+      isScheduleValid,
+      isVehicleAvailable,
+      isDriverEligibleAndAvailable,
+      isPricingCompleted,
+      isAllReady,
+    };
+  }, [
+    formData.customerId,
+    selectedCustomer,
+    formData.pickupLocation,
+    formData.dropLocation,
+    formData.startDateTime,
+    formData.endDateTime,
+    durationCalculation.text,
+    formData.vehicleId,
+    selectedVehicle,
+    vehicleConflicts.length,
+    formData.driverId,
+    selectedDriver,
+    driverConflicts.length,
+    driverEligibility,
+    formData.rateType,
+    formData.baseRate,
+    financialCalculations.totalAmount,
+  ]);
 
   // Field change handler
   const handleChange = (field, value) => {
@@ -389,7 +468,7 @@ export default function TripForm() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-12">
+    <div className="mx-auto max-w-7xl space-y-6 pb-16">
       {/* Toast */}
       {toast && (
         <Toast
@@ -399,48 +478,67 @@ export default function TripForm() {
         />
       )}
 
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      {/* Header & Top Actions */}
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 pb-2 border-b border-slate-200 dark:border-[#262837]">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {isEditMode
-              ? `Edit Trip: ${formData.tripCode}`
-              : "Create New Trip / Booking"}
-          </h1>
-          <p className="text-xs text-muted">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              {isEditMode
+                ? `Edit Trip: ${formData.tripCode}`
+                : "Create New Trip / Booking"}
+            </h1>
+            <span
+              id="trip-code-badge"
+              className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/60"
+            >
+              {isEditMode ? formData.tripCode : "TRP-NEW"}
+            </span>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Configure customer journey, vehicle & driver allocation, schedule,
             and pricing.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
           <Button
+            id="trip-cancel-btn-top"
             type="button"
             variant="secondary"
             onClick={() => navigate("/trips")}
             disabled={isSubmitting}
+            className="text-xs sm:text-sm font-medium"
           >
             Cancel
           </Button>
           <Button
+            id="trip-save-draft-btn-top"
             type="button"
             variant="secondary"
             onClick={() => handleSubmit("draft")}
             disabled={isSubmitting}
+            className="text-xs sm:text-sm font-medium"
           >
             Save Draft
           </Button>
           <Button
+            id="trip-save-confirm-btn-top"
             type="button"
             variant="primary"
-            onClick={() => handleSubmit("confirmed")}
+            onClick={() =>
+              handleSubmit(
+                isEditMode && formData.status ? formData.status : "confirmed",
+              )
+            }
             disabled={isSubmitting}
+            className="text-xs sm:text-sm font-semibold bg-gradient-to-r from-[#06b6d4] to-[#8b5cf6] hover:from-[#0891b2] hover:to-[#7c3aed] text-white shadow-sm"
           >
-            Save & Confirm
+            {isEditMode ? "Save Changes" : "Save & Confirm"}
           </Button>
         </div>
-      </div>
+      </header>
 
+      {/* Main Form Layout (2 Columns on Desktop) */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -448,86 +546,137 @@ export default function TripForm() {
             isEditMode && formData.status ? formData.status : "confirmed",
           );
         }}
-        className="space-y-6"
+        className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start"
       >
-        {/* 1. Booking Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>1. Booking Information</CardTitle>
-            <CardDescription>
-              Basic booking reference and general trip categorization.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FormField label="Trip Code">
-              {({ id }) => (
+        {/* Left Column: Flow Sections */}
+        <div className="xl:col-span-8 space-y-6">
+          {/* 1. Booking Information */}
+          <section
+            id="section-booking-info"
+            className="bg-white dark:bg-[#161822] border border-slate-200 dark:border-[#262837] rounded-xl p-5 sm:p-6 shadow-xs hover:border-violet-300 dark:hover:border-violet-700/50 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 flex items-center justify-center font-bold text-sm">
+                1
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  Booking Information
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Basic booking reference and general trip categorization.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label
+                  htmlFor="trip-code-input"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5"
+                >
+                  Trip Code
+                </label>
                 <Input
-                  id={id}
+                  id="trip-code-input"
                   value={formData.tripCode}
                   disabled
-                  className="bg-background font-mono text-foreground font-semibold"
+                  className="bg-slate-50 dark:bg-[#13151f] font-mono font-semibold text-slate-600 dark:text-slate-400 cursor-not-allowed"
                 />
-              )}
-            </FormField>
+              </div>
 
-            <FormField label="Booking Date" required error={errors.bookingDate}>
-              {({ id }) => (
+              <div>
+                <label
+                  htmlFor="booking-date-input"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5"
+                >
+                  Booking Date <span className="text-rose-500">*</span>
+                </label>
                 <DatePicker
-                  id={id}
+                  id="booking-date-input"
                   value={formData.bookingDate}
                   onChange={(e) => handleChange("bookingDate", e.target.value)}
+                  error={errors.bookingDate}
                 />
-              )}
-            </FormField>
+                {errors.bookingDate && (
+                  <p className="text-xs text-rose-500 mt-1">
+                    {errors.bookingDate}
+                  </p>
+                )}
+              </div>
 
-            <FormField label="Trip Type" required error={errors.tripType}>
-              {({ id }) => (
+              <div>
+                <label
+                  htmlFor="trip-type-select"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5"
+                >
+                  Trip Type <span className="text-rose-500">*</span>
+                </label>
                 <Select
-                  id={id}
+                  id="trip-type-select"
                   value={formData.tripType}
                   onChange={(e) => handleChange("tripType", e.target.value)}
                   options={TRIP_TYPES}
+                  error={errors.tripType}
                 />
-              )}
-            </FormField>
-
-            <div className="md:col-span-3">
-              <FormField
-                label="Customer Reference / Booking ID (Optional)"
-                description="Client-provided PO, tour booking code, or internal reference"
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    placeholder="e.g. PO-88492 or TOUR-2026-AUG"
-                    value={formData.referenceNumber}
-                    onChange={(e) =>
-                      handleChange("referenceNumber", e.target.value)
-                    }
-                  />
+                {errors.tripType && (
+                  <p className="text-xs text-rose-500 mt-1">
+                    {errors.tripType}
+                  </p>
                 )}
-              </FormField>
+              </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* 2. Customer Assignment */}
-        <Card>
-          <CardHeader>
-            <CardTitle>2. Customer</CardTitle>
-            <CardDescription>
-              Select an active customer from the Customer Master.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <FormField
-              label="Select Customer"
-              required
-              error={errors.customerId}
-            >
-              {({ id }) => (
+            <div className="mt-4">
+              <label
+                htmlFor="customer-reference-input"
+                className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5"
+              >
+                Customer Reference / Booking ID (Optional)
+              </label>
+              <Input
+                id="customer-reference-input"
+                placeholder="e.g. PO-88492 or TOUR-2026-AUG"
+                value={formData.referenceNumber}
+                onChange={(e) =>
+                  handleChange("referenceNumber", e.target.value)
+                }
+              />
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                Client-provided PO, tour booking code, or internal reference
+              </p>
+            </div>
+          </section>
+
+          {/* 2. Customer Selection & Snapshot */}
+          <section
+            id="section-customer"
+            className="bg-white dark:bg-[#161822] border border-slate-200 dark:border-[#262837] rounded-xl p-5 sm:p-6 shadow-xs hover:border-violet-300 dark:hover:border-violet-700/50 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 flex items-center justify-center font-bold text-sm">
+                2
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  Customer
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Select an active customer from the Customer Master.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="customer-select-input"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5"
+                >
+                  Select Customer <span className="text-rose-500">*</span>
+                </label>
                 <Select
-                  id={id}
+                  id="customer-select-input"
                   placeholder="-- Select a Customer --"
                   value={formData.customerId}
                   onChange={(e) => handleChange("customerId", e.target.value)}
@@ -540,455 +689,724 @@ export default function TripForm() {
                       label: `${c.name} (${c.customerCode || "No Code"}) ${c.mobile1 ? `· ${c.mobile1}` : ""}`,
                       value: c.id,
                     }))}
+                  error={errors.customerId}
                 />
-              )}
-            </FormField>
-
-            {/* Customer Snapshot Information Block */}
-            {selectedCustomer && (
-              <div className="rounded-lg border border-border bg-background/50 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
-                    Customer Snapshot
-                  </h4>
-                  {customerAccountStatus && (
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                        customerAccountStatus.value === "due"
-                          ? "bg-warning/10 text-warning border-warning/20"
-                          : "bg-success/10 text-success border-success/20"
-                      }`}
-                    >
-                      Account: {customerAccountStatus.label}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                  <div>
-                    <span className="text-muted block">Customer Name</span>
-                    <span className="font-semibold text-foreground">
-                      {selectedCustomer.name}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted block">Customer Code</span>
-                    <span className="font-mono font-medium text-foreground">
-                      {selectedCustomer.customerCode || "—"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted block">Primary Mobile</span>
-                    <span className="font-mono font-medium text-foreground">
-                      {selectedCustomer.mobile1 || "—"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted block">Payment Terms</span>
-                    <span className="font-medium text-foreground">
-                      {selectedCustomer.creditDays !== undefined
-                        ? `${selectedCustomer.creditDays} Days`
-                        : "Immediate"}
-                    </span>
-                  </div>
-                </div>
-
-                {customerAccountStatus?.value === "due" && (
-                  <p className="text-xs text-warning bg-warning/10 p-2 rounded border border-warning/20">
-                    ⚠ Note: Customer currently has pending dues/balance. Proceed
-                    with booking as scheduled.
+                {errors.customerId && (
+                  <p className="text-xs text-rose-500 mt-1">
+                    {errors.customerId}
                   </p>
                 )}
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* 3. Vehicle & Driver Assignment */}
-        <Card>
-          <CardHeader>
-            <CardTitle>3. Vehicle & Driver Assignment</CardTitle>
-            <CardDescription>
-              Assign available and eligible fleet assets to this journey.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Vehicle Selection */}
-            <div className="space-y-3">
-              <FormField
-                label="Assign Vehicle"
-                required
-                error={errors.vehicleId}
-              >
-                {({ id }) => (
-                  <Select
-                    id={id}
-                    placeholder="-- Select a Vehicle --"
-                    value={formData.vehicleId}
-                    onChange={(e) => handleChange("vehicleId", e.target.value)}
-                    options={vehicles
-                      .filter(
-                        (v) =>
-                          v.isActive !== false || v.id === formData.vehicleId,
-                      )
-                      .map((v) => ({
-                        label: `${v.vehicleNumber || v.vehicleCode} — ${v.make || ""} ${v.model || ""} (${v.seatingCapacity || 0} Seats)`,
-                        value: v.id,
-                      }))}
-                  />
-                )}
-              </FormField>
-
-              {/* Vehicle Snapshot & Availability alert */}
-              {selectedVehicle && (
-                <div className="rounded-lg border border-border bg-background/50 p-3 space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-foreground">
-                      {selectedVehicle.vehicleNumber} ({selectedVehicle.make}{" "}
-                      {selectedVehicle.model})
-                    </span>
-                    {vehicleDocumentStatus && (
-                      <span
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium border ${
-                          vehicleDocumentStatus.value === "expired"
-                            ? "bg-error/10 text-error border-error/20"
-                            : "bg-success/10 text-success border-success/20"
-                        }`}
-                      >
-                        Docs: {vehicleDocumentStatus.label}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between text-muted">
-                    <span>
-                      Capacity: {selectedVehicle.seatingCapacity} Seats
-                    </span>
-                    <span className="capitalize">
-                      Type: {selectedVehicle.vehicleType}
-                    </span>
-                  </div>
-
-                  {/* Availability badge/conflict warning */}
-                  {vehicleConflicts.length > 0 ? (
-                    <div className="p-2 rounded bg-error/10 border border-error/20 text-error font-medium">
-                      ⚠ Vehicle Unavailable: Already assigned to{" "}
-                      <span className="font-mono font-bold">
-                        {vehicleConflicts[0].tripCode}
-                      </span>{" "}
-                      ({vehicleConflicts[0].startDateTime.replace("T", " ")} -{" "}
-                      {vehicleConflicts[0].endDateTime.replace("T", " ")})
+              {/* Selected Customer Snapshot Card */}
+              {selectedCustomer && (
+                <div
+                  id="customer-snapshot-card"
+                  className="rounded-xl border border-slate-200 dark:border-[#262837] bg-slate-50/80 dark:bg-[#13151f] p-4 space-y-3 transition-all"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-full bg-cyan-100 dark:bg-cyan-950/80 text-cyan-700 dark:text-cyan-300 font-bold text-base flex items-center justify-center shrink-0 border border-cyan-200 dark:border-cyan-800/60">
+                        {selectedCustomer.name
+                          ?.split(" ")
+                          .slice(0, 2)
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase() || "CU"}
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                          {selectedCustomer.name}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          {selectedCustomer.customerCode && (
+                            <span className="font-mono font-medium">
+                              {selectedCustomer.customerCode}
+                            </span>
+                          )}
+                          {selectedCustomer.mobile1 && (
+                            <span className="inline-flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[13px]">
+                                phone
+                              </span>
+                              {selectedCustomer.mobile1}
+                            </span>
+                          )}
+                          {selectedCustomer.email && (
+                            <span className="inline-flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[13px]">
+                                mail
+                              </span>
+                              {selectedCustomer.email}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="p-1.5 rounded bg-success/10 border border-success/20 text-success text-[11px]">
-                      ● Vehicle is available for selected schedule
+
+                    <div className="flex flex-wrap sm:flex-col sm:items-end gap-1.5 shrink-0">
+                      {customerAccountStatus && (
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                            customerAccountStatus.value === "due"
+                              ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/60"
+                              : "bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/60"
+                          }`}
+                        >
+                          ACCOUNT: {customerAccountStatus.label.toUpperCase()}
+                        </span>
+                      )}
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        Credit Terms:{" "}
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">
+                          {selectedCustomer.creditDays !== undefined &&
+                          selectedCustomer.creditDays !== null
+                            ? `${selectedCustomer.creditDays} Days`
+                            : "Immediate"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pending Dues Warning */}
+                  {customerAccountStatus?.value === "due" && (
+                    <div
+                      id="customer-dues-warning"
+                      className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-950/30 p-2.5 rounded-lg border border-amber-200/80 dark:border-amber-800/50"
+                    >
+                      <span className="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+                        warning
+                      </span>
+                      <span>
+                        <strong>Note:</strong> Customer currently has pending
+                        dues/balance. Proceed with booking as scheduled.
+                      </span>
                     </div>
                   )}
                 </div>
               )}
             </div>
+          </section>
 
-            {/* Driver Selection */}
-            <div className="space-y-3">
-              <FormField label="Assign Driver" required error={errors.driverId}>
-                {({ id }) => (
-                  <Select
-                    id={id}
-                    placeholder="-- Select a Driver --"
-                    value={formData.driverId}
-                    onChange={(e) => handleChange("driverId", e.target.value)}
-                    options={drivers
-                      .filter(
-                        (d) =>
-                          (d.isActive !== false && isDriverEligible(d)) ||
-                          d.id === formData.driverId,
-                      )
-                      .map((d) => ({
-                        label: `${d.name} (${d.driverCode}) · ${d.mobile || ""}`,
-                        value: d.id,
-                      }))}
-                  />
-                )}
-              </FormField>
+          {/* 3. Journey & Schedule */}
+          <section
+            id="section-journey-schedule"
+            className="bg-white dark:bg-[#161822] border border-slate-200 dark:border-[#262837] rounded-xl p-5 sm:p-6 shadow-xs hover:border-violet-300 dark:hover:border-violet-700/50 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 flex items-center justify-center font-bold text-sm">
+                3
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  Journey & Schedule
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Define route, timeline, duration, and odometer tracking.
+                </p>
+              </div>
+            </div>
 
-              {/* Driver Snapshot & Availability alert */}
-              {selectedDriver && (
-                <div className="rounded-lg border border-border bg-background/50 p-3 space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-foreground">
-                      {selectedDriver.name} ({selectedDriver.driverCode})
-                    </span>
-                    {driverLicenseStatus && (
-                      <span
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium border ${
-                          driverLicenseStatus.value === "expired"
-                            ? "bg-error/10 text-error border-error/20"
-                            : "bg-success/10 text-success border-success/20"
-                        }`}
-                      >
-                        License: {driverLicenseStatus.label}
-                      </span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Route Timeline Column */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Route Path
+                </h3>
+
+                <div className="relative pl-7 space-y-4 before:content-[''] before:absolute before:left-[9px] before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200 dark:before:bg-[#262837]">
+                  {/* Origin */}
+                  <div className="relative">
+                    <div className="absolute -left-[27px] top-2.5 w-4 h-4 rounded-full bg-white dark:bg-[#161822] border-2 border-violet-600 flex items-center justify-center">
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-600"></div>
+                    </div>
+                    <label
+                      htmlFor="pickup-location-input"
+                      className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1"
+                    >
+                      Pickup Location <span className="text-rose-500">*</span>
+                    </label>
+                    <Input
+                      id="pickup-location-input"
+                      placeholder="Enter origin address or city"
+                      value={formData.pickupLocation}
+                      onChange={(e) =>
+                        handleChange("pickupLocation", e.target.value)
+                      }
+                      error={errors.pickupLocation}
+                    />
+                    {errors.pickupLocation && (
+                      <p className="text-xs text-rose-500 mt-1">
+                        {errors.pickupLocation}
+                      </p>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between text-muted">
-                    <span>Mobile: {selectedDriver.mobile || "—"}</span>
-                    <span>Daily Rate: ₹{selectedDriver.dailyRate || 0}</span>
+                  {/* Intermediate Stops */}
+                  <div className="relative">
+                    <div className="absolute -left-[27px] top-2.5 w-4 h-4 rounded-full bg-white dark:bg-[#161822] border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                    </div>
+                    <label
+                      htmlFor="stops-input"
+                      className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1"
+                    >
+                      Via / Intermediate Stops (Optional)
+                    </label>
+                    <Input
+                      id="stops-input"
+                      placeholder="e.g. MIDC Waluj, Ahmednagar Bypass (comma-separated)"
+                      value={formData.stops}
+                      onChange={(e) => handleChange("stops", e.target.value)}
+                    />
                   </div>
 
-                  {/* Availability / Conflict warning */}
-                  {driverConflicts.length > 0 ? (
-                    <div className="p-2 rounded bg-error/10 border border-error/20 text-error font-medium">
-                      ⚠ Driver Unavailable: Already assigned to{" "}
-                      <span className="font-mono font-bold">
-                        {driverConflicts[0].tripCode}
-                      </span>{" "}
-                      ({driverConflicts[0].startDateTime.replace("T", " ")} -{" "}
-                      {driverConflicts[0].endDateTime.replace("T", " ")})
+                  {/* Destination */}
+                  <div className="relative">
+                    <div className="absolute -left-[27px] top-2.5 w-4 h-4 rounded-full bg-white dark:bg-[#161822] border-2 border-cyan-500 flex items-center justify-center">
+                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-500"></div>
                     </div>
-                  ) : (
-                    <div className="p-1.5 rounded bg-success/10 border border-success/20 text-success text-[11px]">
-                      ● Driver is available for selected schedule
-                    </div>
-                  )}
+                    <label
+                      htmlFor="drop-location-input"
+                      className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1"
+                    >
+                      Drop-off Location <span className="text-rose-500">*</span>
+                    </label>
+                    <Input
+                      id="drop-location-input"
+                      placeholder="Enter destination address or city"
+                      value={formData.dropLocation}
+                      onChange={(e) =>
+                        handleChange("dropLocation", e.target.value)
+                      }
+                      error={errors.dropLocation}
+                    />
+                    {errors.dropLocation && (
+                      <p className="text-xs text-rose-500 mt-1">
+                        {errors.dropLocation}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* 4. Journey Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>4. Journey Information</CardTitle>
-            <CardDescription>
-              Pickup point, destination, stops, and driver instructions.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              label="Pickup Location"
-              required
-              error={errors.pickupLocation}
-            >
-              {({ id }) => (
-                <Input
-                  id={id}
-                  placeholder="e.g. Chhatrapati Sambhajinagar"
-                  value={formData.pickupLocation}
-                  onChange={(e) =>
-                    handleChange("pickupLocation", e.target.value)
-                  }
-                />
-              )}
-            </FormField>
-
-            <FormField
-              label="Drop Location"
-              required
-              error={errors.dropLocation}
-            >
-              {({ id }) => (
-                <Input
-                  id={id}
-                  placeholder="e.g. Pune / Mumbai Airport"
-                  value={formData.dropLocation}
-                  onChange={(e) => handleChange("dropLocation", e.target.value)}
-                />
-              )}
-            </FormField>
-
-            <div className="md:col-span-2">
-              <FormField
-                label="Via / Intermediate Stops (Optional)"
-                description="Comma-separated landmarks or stopping points along the journey"
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    placeholder="e.g. MIDC Waluj, Ahmednagar Highway Bypass"
-                    value={formData.stops}
-                    onChange={(e) => handleChange("stops", e.target.value)}
-                  />
-                )}
-              </FormField>
-            </div>
-
-            <div className="md:col-span-2">
-              <FormField
-                label="Pickup Instructions / Notes"
-                description="Reporting gates, contact numbers, flight details, name board text"
-              >
-                {({ id }) => (
+                <div className="pt-2">
+                  <label
+                    htmlFor="pickup-instructions-input"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                  >
+                    Pickup Instructions / Notes
+                  </label>
                   <Textarea
-                    id={id}
+                    id="pickup-instructions-input"
                     rows={2}
-                    placeholder="e.g. Arrive 15 minutes before departure. Name board: 'Dr. Sethi - Tours'."
+                    placeholder="Reporting gate, contact details, flight info, name board text..."
                     value={formData.pickupInstructions}
                     onChange={(e) =>
                       handleChange("pickupInstructions", e.target.value)
                     }
                   />
-                )}
-              </FormField>
-            </div>
-          </CardContent>
-        </Card>
+                </div>
+              </div>
 
-        {/* 5. Schedule & Kilometers */}
-        <Card>
-          <CardHeader>
-            <CardTitle>5. Schedule & Kilometers</CardTitle>
-            <CardDescription>
-              Trip timings, automatic duration calculation, and odometer
-              tracking.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
-                label="Trip Start Date & Time"
-                required
-                error={errors.startDateTime}
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="datetime-local"
-                    value={formData.startDateTime}
-                    onChange={(e) =>
-                      handleChange("startDateTime", e.target.value)
-                    }
-                  />
-                )}
-              </FormField>
+              {/* Schedule & KM Column */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Schedule & Timing
+                </h3>
 
-              <FormField
-                label="Trip End Date & Time"
-                required
-                error={errors.endDateTime}
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="datetime-local"
-                    value={formData.endDateTime}
-                    onChange={(e) =>
-                      handleChange("endDateTime", e.target.value)
-                    }
-                  />
-                )}
-              </FormField>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      htmlFor="start-datetime-input"
+                      className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1"
+                    >
+                      Start Date & Time <span className="text-rose-500">*</span>
+                    </label>
+                    <Input
+                      id="start-datetime-input"
+                      type="datetime-local"
+                      value={formData.startDateTime}
+                      onChange={(e) =>
+                        handleChange("startDateTime", e.target.value)
+                      }
+                      error={errors.startDateTime}
+                    />
+                    {errors.startDateTime && (
+                      <p className="text-xs text-rose-500 mt-1">
+                        {errors.startDateTime}
+                      </p>
+                    )}
+                  </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Calculated Duration
-                </label>
-                <div className="h-10 px-3 rounded-md border border-border bg-background flex items-center font-semibold text-primary text-sm">
-                  {durationCalculation.text}
+                  <div>
+                    <label
+                      htmlFor="end-datetime-input"
+                      className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1"
+                    >
+                      End Date & Time <span className="text-rose-500">*</span>
+                    </label>
+                    <Input
+                      id="end-datetime-input"
+                      type="datetime-local"
+                      value={formData.endDateTime}
+                      onChange={(e) =>
+                        handleChange("endDateTime", e.target.value)
+                      }
+                      error={errors.endDateTime}
+                    />
+                    {errors.endDateTime && (
+                      <p className="text-xs text-rose-500 mt-1">
+                        {errors.endDateTime}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Duration & Distance Highlight Box */}
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#13151f] border border-slate-200 dark:border-[#262837] flex items-center justify-between">
+                  <div>
+                    <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Calculated Duration
+                    </span>
+                    <span
+                      id="calculated-duration-display"
+                      className="text-base font-bold text-violet-700 dark:text-violet-300"
+                    >
+                      {durationCalculation.text}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Total Distance
+                    </span>
+                    <span
+                      id="calculated-distance-display"
+                      className="text-base font-mono font-bold text-slate-800 dark:text-slate-200"
+                    >
+                      {totalKmCalculation !== null
+                        ? `${totalKmCalculation} km`
+                        : "— km"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Kilometer Readings */}
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div>
+                    <label
+                      htmlFor="opening-km-input"
+                      className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                    >
+                      Opening KM
+                    </label>
+                    <Input
+                      id="opening-km-input"
+                      type="number"
+                      placeholder="e.g. 45200"
+                      value={formData.openingKm}
+                      onChange={(e) =>
+                        handleChange("openingKm", e.target.value)
+                      }
+                      error={errors.openingKm}
+                    />
+                    {errors.openingKm && (
+                      <p className="text-xs text-rose-500 mt-1">
+                        {errors.openingKm}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="closing-km-input"
+                      className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                    >
+                      Closing KM
+                    </label>
+                    <Input
+                      id="closing-km-input"
+                      type="number"
+                      placeholder="e.g. 45680"
+                      value={formData.closingKm}
+                      onChange={(e) =>
+                        handleChange("closingKm", e.target.value)
+                      }
+                      error={errors.closingKm}
+                    />
+                    {errors.closingKm && (
+                      <p className="text-xs text-rose-500 mt-1">
+                        {errors.closingKm}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
+          </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-border">
-              <FormField
-                label="Opening KM"
-                description="Odometer at start"
-                error={errors.openingKm}
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="number"
-                    placeholder="e.g. 45200"
-                    value={formData.openingKm}
-                    onChange={(e) => handleChange("openingKm", e.target.value)}
-                  />
-                )}
-              </FormField>
-
-              <FormField
-                label="Closing KM"
-                description="Odometer at trip finish"
-                error={errors.closingKm}
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="number"
-                    placeholder="e.g. 45680"
-                    value={formData.closingKm}
-                    onChange={(e) => handleChange("closingKm", e.target.value)}
-                  />
-                )}
-              </FormField>
-
+          {/* 4. Vehicle & Driver Assignment */}
+          <section
+            id="section-resources"
+            className="bg-white dark:bg-[#161822] border border-slate-200 dark:border-[#262837] rounded-xl p-5 sm:p-6 shadow-xs hover:border-violet-300 dark:hover:border-violet-700/50 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 flex items-center justify-center font-bold text-sm">
+                4
+              </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Total Distance
-                </label>
-                <div className="h-10 px-3 rounded-md border border-border bg-background flex items-center font-mono font-bold text-foreground text-sm">
-                  {totalKmCalculation !== null
-                    ? `${totalKmCalculation} KM`
-                    : "—"}
-                </div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  Vehicle & Driver Assignment
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Assign available and eligible fleet assets to this journey.
+                </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* 6. Pricing & Charges */}
-        <Card>
-          <CardHeader>
-            <CardTitle>6. Pricing & Billing Breakdown</CardTitle>
-            <CardDescription>
-              Define base tariffs, allowances, taxes, and automatic totals.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField label="Rate Type" required error={errors.rateType}>
-                {({ id }) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Vehicle Assignment Column */}
+              <div className="space-y-3">
+                <label
+                  htmlFor="vehicle-select-input"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                >
+                  Assign Vehicle <span className="text-rose-500">*</span>
+                </label>
+                <Select
+                  id="vehicle-select-input"
+                  placeholder="-- Select a Vehicle --"
+                  value={formData.vehicleId}
+                  onChange={(e) => handleChange("vehicleId", e.target.value)}
+                  options={vehicles
+                    .filter(
+                      (v) =>
+                        v.isActive !== false || v.id === formData.vehicleId,
+                    )
+                    .map((v) => ({
+                      label: `${v.vehicleNumber || v.vehicleCode} — ${v.make || ""} ${v.model || ""} (${v.seatingCapacity || 0} Seats)`,
+                      value: v.id,
+                    }))}
+                  error={errors.vehicleId}
+                />
+                {errors.vehicleId && (
+                  <p className="text-xs text-rose-500 mt-1">
+                    {errors.vehicleId}
+                  </p>
+                )}
+
+                {/* Vehicle Snapshot Card */}
+                {selectedVehicle && (
+                  <div
+                    id="vehicle-snapshot-card"
+                    className="border border-slate-200 dark:border-[#262837] rounded-xl p-4 bg-slate-50/80 dark:bg-[#13151f] space-y-3"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                          {selectedVehicle.make} {selectedVehicle.model}
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                          {selectedVehicle.vehicleNumber} •{" "}
+                          <span className="capitalize">
+                            {selectedVehicle.vehicleType}
+                          </span>{" "}
+                          • {selectedVehicle.seatingCapacity} Seats
+                        </p>
+                      </div>
+
+                      {vehicleConflicts.length > 0 ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60">
+                          UNAVAILABLE
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800/60">
+                          AVAILABLE
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="h-px bg-slate-200 dark:bg-[#262837] w-full" />
+
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[15px] text-cyan-600 dark:text-cyan-400">
+                          verified
+                        </span>
+                        Compliance / Docs
+                      </span>
+                      {vehicleDocumentStatus && (
+                        <span
+                          className={`font-semibold px-2 py-0.5 rounded text-[11px] border ${
+                            vehicleDocumentStatus.value === "expired"
+                              ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800/60"
+                              : vehicleDocumentStatus.value === "expiring_soon"
+                                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/60"
+                                : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60"
+                          }`}
+                        >
+                          {vehicleDocumentStatus.label}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Conflict Warning Box */}
+                    {vehicleConflicts.length > 0 && (
+                      <div
+                        id="vehicle-conflict-alert"
+                        className="p-2.5 rounded-lg bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs space-y-1"
+                      >
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[15px] text-rose-600 dark:text-rose-400">
+                            error
+                          </span>
+                          Vehicle Unavailable (Schedule Conflict)
+                        </div>
+                        <p>
+                          Already assigned to{" "}
+                          <span className="font-mono font-bold">
+                            {vehicleConflicts[0].tripCode}
+                          </span>{" "}
+                          (
+                          {vehicleConflicts[0].startDateTime
+                            ?.replace("T", " ")
+                            .slice(0, 16)}{" "}
+                          →{" "}
+                          {vehicleConflicts[0].endDateTime
+                            ?.replace("T", " ")
+                            .slice(0, 16)}
+                          )
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Driver Assignment Column */}
+              <div className="space-y-3">
+                <label
+                  htmlFor="driver-select-input"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                >
+                  Assign Driver <span className="text-rose-500">*</span>
+                </label>
+                <Select
+                  id="driver-select-input"
+                  placeholder="-- Select a Driver --"
+                  value={formData.driverId}
+                  onChange={(e) => handleChange("driverId", e.target.value)}
+                  options={drivers
+                    .filter(
+                      (d) =>
+                        (d.isActive !== false && isDriverEligible(d)) ||
+                        d.id === formData.driverId,
+                    )
+                    .map((d) => ({
+                      label: `${d.name} (${d.driverCode || "DRV"}) · ${d.mobile || ""}`,
+                      value: d.id,
+                    }))}
+                  error={errors.driverId}
+                />
+                {errors.driverId && (
+                  <p className="text-xs text-rose-500 mt-1">
+                    {errors.driverId}
+                  </p>
+                )}
+
+                {/* Driver Snapshot Card */}
+                {selectedDriver && (
+                  <div
+                    id="driver-snapshot-card"
+                    className="border border-slate-200 dark:border-[#262837] rounded-xl p-4 bg-slate-50/80 dark:bg-[#13151f] space-y-3"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 font-bold text-sm flex items-center justify-center shrink-0 border border-violet-200 dark:border-violet-800/60">
+                          {selectedDriver.name
+                            ?.split(" ")
+                            .slice(0, 2)
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase() || "DR"}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                            {selectedDriver.name}
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                            ID: {selectedDriver.driverCode || "—"} • Mobile:{" "}
+                            {selectedDriver.mobile || "—"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {driverConflicts.length > 0 || !driverEligibility ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60">
+                          {!driverEligibility ? "INELIGIBLE" : "UNAVAILABLE"}
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800/60">
+                          AVAILABLE
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="h-px bg-slate-200 dark:bg-[#262837] w-full" />
+
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[15px] text-cyan-600 dark:text-cyan-400">
+                          badge
+                        </span>
+                        License & Daily Rate
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {driverLicenseStatus && (
+                          <span
+                            className={`font-semibold px-2 py-0.5 rounded text-[11px] border ${
+                              driverLicenseStatus.value === "expired"
+                                ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800/60"
+                                : driverLicenseStatus.value === "expiring_soon"
+                                  ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/60"
+                                  : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60"
+                            }`}
+                          >
+                            License: {driverLicenseStatus.label}
+                          </span>
+                        )}
+                        <span className="font-mono font-bold text-slate-700 dark:text-slate-200">
+                          ₹{selectedDriver.dailyRate || 0}/day
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Driver Ineligibility Warning */}
+                    {!driverEligibility && (
+                      <div
+                        id="driver-ineligible-alert"
+                        className="p-2.5 rounded-lg bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs"
+                      >
+                        ⚠ <strong>Driver Ineligible:</strong> License is expired
+                        or missing. Cannot assign this driver.
+                      </div>
+                    )}
+
+                    {/* Conflict Warning Box */}
+                    {driverConflicts.length > 0 && (
+                      <div
+                        id="driver-conflict-alert"
+                        className="p-2.5 rounded-lg bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs space-y-1"
+                      >
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[15px] text-rose-600 dark:text-rose-400">
+                            error
+                          </span>
+                          Driver Unavailable (Schedule Conflict)
+                        </div>
+                        <p>
+                          Already assigned to{" "}
+                          <span className="font-mono font-bold">
+                            {driverConflicts[0].tripCode}
+                          </span>{" "}
+                          (
+                          {driverConflicts[0].startDateTime
+                            ?.replace("T", " ")
+                            .slice(0, 16)}{" "}
+                          →{" "}
+                          {driverConflicts[0].endDateTime
+                            ?.replace("T", " ")
+                            .slice(0, 16)}
+                          )
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* 5. Pricing, Charges & Taxes */}
+          <section
+            id="section-pricing"
+            className="bg-white dark:bg-[#161822] border border-slate-200 dark:border-[#262837] rounded-xl p-5 sm:p-6 shadow-xs hover:border-violet-300 dark:hover:border-violet-700/50 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 flex items-center justify-center font-bold text-sm">
+                5
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  Pricing & Charges
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Configure tariffs, rate structures, additional allowances,
+                  discounts, and GST.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              {/* Rate Type & Base Rate Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label
+                    htmlFor="rate-type-select"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                  >
+                    Rate Type <span className="text-rose-500">*</span>
+                  </label>
                   <Select
-                    id={id}
+                    id="rate-type-select"
                     value={formData.rateType}
                     onChange={(e) => handleChange("rateType", e.target.value)}
                     options={RATE_TYPES}
+                    error={errors.rateType}
                   />
-                )}
-              </FormField>
+                  {errors.rateType && (
+                    <p className="text-xs text-rose-500 mt-1">
+                      {errors.rateType}
+                    </p>
+                  )}
+                </div>
 
-              <FormField
-                label="Base Rate / Tariff (₹)"
-                required
-                error={errors.baseRate}
-              >
-                {({ id }) => (
+                <div>
+                  <label
+                    htmlFor="base-rate-input"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                  >
+                    Base Rate / Tariff (₹){" "}
+                    <span className="text-rose-500">*</span>
+                  </label>
                   <Input
-                    id={id}
+                    id="base-rate-input"
                     type="number"
-                    placeholder="e.g. 18000"
+                    placeholder="e.g. 5000"
                     value={formData.baseRate}
                     onChange={(e) => handleChange("baseRate", e.target.value)}
+                    error={errors.baseRate}
                   />
-                )}
-              </FormField>
+                  {errors.baseRate && (
+                    <p className="text-xs text-rose-500 mt-1">
+                      {errors.baseRate}
+                    </p>
+                  )}
+                </div>
 
-              <FormField
-                label={
-                  formData.rateType === "per_km"
-                    ? "Rate Per KM (₹)"
-                    : formData.rateType === "per_hour"
-                      ? "Rate Per Hour (₹)"
-                      : "Rate Per Day (₹)"
-                }
-                error={
-                  errors.ratePerKm || errors.ratePerHour || errors.ratePerDay
-                }
-              >
-                {({ id }) => (
+                {/* Contextual Rate Field based on Rate Type */}
+                <div>
+                  <label
+                    htmlFor="contextual-rate-input"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                  >
+                    {formData.rateType === "per_km"
+                      ? "Rate Per KM (₹)"
+                      : formData.rateType === "per_hour"
+                        ? "Rate Per Hour (₹)"
+                        : "Rate Per Day (₹)"}
+                  </label>
                   <Input
-                    id={id}
+                    id="contextual-rate-input"
                     type="number"
                     placeholder="e.g. 20"
                     value={
@@ -1006,307 +1424,604 @@ export default function TripForm() {
                       else handleChange("ratePerDay", e.target.value);
                     }}
                   />
-                )}
-              </FormField>
-            </div>
-
-            {/* Additional Charges Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-border">
-              <FormField
-                label="Driver Charges (₹)"
-                error={errors.driverCharges}
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="number"
-                    placeholder="0"
-                    value={formData.driverCharges}
-                    onChange={(e) =>
-                      handleChange("driverCharges", e.target.value)
-                    }
-                  />
-                )}
-              </FormField>
-
-              <FormField label="Toll Charges (₹)" error={errors.tollCharges}>
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="number"
-                    placeholder="0"
-                    value={formData.tollCharges}
-                    onChange={(e) =>
-                      handleChange("tollCharges", e.target.value)
-                    }
-                  />
-                )}
-              </FormField>
-
-              <FormField
-                label="Parking Charges (₹)"
-                error={errors.parkingCharges}
-              >
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="number"
-                    placeholder="0"
-                    value={formData.parkingCharges}
-                    onChange={(e) =>
-                      handleChange("parkingCharges", e.target.value)
-                    }
-                  />
-                )}
-              </FormField>
-
-              <FormField label="Other Charges (₹)" error={errors.otherCharges}>
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    type="number"
-                    placeholder="0"
-                    value={formData.otherCharges}
-                    onChange={(e) =>
-                      handleChange("otherCharges", e.target.value)
-                    }
-                  />
-                )}
-              </FormField>
-            </div>
-
-            {/* Discounts & Taxes */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-3 border-t border-border">
-              {/* Discount Group */}
-              <div className="space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted">
-                  Discount
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Select
-                    value={formData.discountType}
-                    onChange={(e) =>
-                      handleChange("discountType", e.target.value)
-                    }
-                    options={DISCOUNT_TYPES}
-                  />
-                  <Input
-                    type="number"
-                    placeholder={
-                      formData.discountType === "percentage"
-                        ? "% e.g. 10"
-                        : "₹ Amount"
-                    }
-                    value={formData.discountValue}
-                    onChange={(e) =>
-                      handleChange("discountValue", e.target.value)
-                    }
-                  />
                 </div>
               </div>
 
-              {/* Tax Group */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-                    GST / Tax Applicable
+              {/* Additional Charges Section (Expandable/Toggleable) */}
+              <div className="pt-3 border-t border-slate-200 dark:border-[#262837]">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Additional Charges & Allowances
                   </span>
-                  <Switch
-                    checked={formData.taxApplicable}
-                    onChange={(checked) =>
-                      handleChange("taxApplicable", checked)
+                  <button
+                    id="toggle-additional-charges-btn"
+                    type="button"
+                    onClick={() =>
+                      setShowAdditionalCharges(!showAdditionalCharges)
                     }
-                  />
+                    className="text-xs font-medium text-violet-600 dark:text-violet-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    {showAdditionalCharges ? "Hide Details" : "Show All Fields"}
+                    <span className="material-symbols-outlined text-[15px]">
+                      {showAdditionalCharges ? "expand_less" : "expand_more"}
+                    </span>
+                  </button>
                 </div>
 
-                {formData.taxApplicable && (
+                <div
+                  className={`grid grid-cols-2 sm:grid-cols-4 gap-3 ${showAdditionalCharges ? "block" : "hidden sm:grid"}`}
+                >
+                  <div>
+                    <label
+                      htmlFor="driver-charges-input"
+                      className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"
+                    >
+                      Driver Allowance (₹)
+                    </label>
+                    <Input
+                      id="driver-charges-input"
+                      type="number"
+                      placeholder="0"
+                      value={formData.driverCharges}
+                      onChange={(e) =>
+                        handleChange("driverCharges", e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="toll-charges-input"
+                      className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"
+                    >
+                      Toll Charges (₹)
+                    </label>
+                    <Input
+                      id="toll-charges-input"
+                      type="number"
+                      placeholder="0"
+                      value={formData.tollCharges}
+                      onChange={(e) =>
+                        handleChange("tollCharges", e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="parking-charges-input"
+                      className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"
+                    >
+                      Parking Charges (₹)
+                    </label>
+                    <Input
+                      id="parking-charges-input"
+                      type="number"
+                      placeholder="0"
+                      value={formData.parkingCharges}
+                      onChange={(e) =>
+                        handleChange("parkingCharges", e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="other-charges-input"
+                      className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"
+                    >
+                      Other Charges (₹)
+                    </label>
+                    <Input
+                      id="other-charges-input"
+                      type="number"
+                      placeholder="0"
+                      value={formData.otherCharges}
+                      onChange={(e) =>
+                        handleChange("otherCharges", e.target.value)
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Discount & Tax Section */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-3 border-t border-slate-200 dark:border-[#262837]">
+                {/* Discount */}
+                <div className="space-y-2">
+                  <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Discount
+                  </span>
                   <div className="grid grid-cols-2 gap-2">
                     <Select
-                      value={formData.taxType}
-                      onChange={(e) => handleChange("taxType", e.target.value)}
-                      options={TAX_TYPES}
+                      id="discount-type-select"
+                      value={formData.discountType}
+                      onChange={(e) =>
+                        handleChange("discountType", e.target.value)
+                      }
+                      options={DISCOUNT_TYPES}
                     />
                     <Input
+                      id="discount-value-input"
                       type="number"
-                      placeholder="Tax Rate %"
-                      value={formData.taxRate}
-                      onChange={(e) => handleChange("taxRate", e.target.value)}
+                      placeholder={
+                        formData.discountType === "percentage"
+                          ? "% e.g. 10"
+                          : "₹ Amount"
+                      }
+                      value={formData.discountValue}
+                      onChange={(e) =>
+                        handleChange("discountValue", e.target.value)
+                      }
+                      error={errors.discountValue}
                     />
                   </div>
-                )}
-              </div>
-            </div>
+                  {errors.discountValue && (
+                    <p className="text-xs text-rose-500 mt-1">
+                      {errors.discountValue}
+                    </p>
+                  )}
+                </div>
 
-            {/* Calculated Subtotal & Grand Total Display */}
-            <div className="rounded-lg bg-surface border border-border p-4 flex flex-wrap items-center justify-between gap-4">
-              <div className="space-y-0.5 text-xs text-muted">
-                <div>
-                  Subtotal:{" "}
-                  <span className="font-mono font-medium text-foreground">
-                    ₹{financialCalculations.subtotal.toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <div>
-                  Discount:{" "}
-                  <span className="font-mono font-medium text-success">
-                    -₹
-                    {financialCalculations.discountAmount.toLocaleString(
-                      "en-IN",
-                    )}
-                  </span>
-                </div>
-                {formData.taxApplicable && (
-                  <div>
-                    Tax ({formData.taxRate}%):{" "}
-                    <span className="font-mono font-medium text-foreground">
-                      +₹
-                      {financialCalculations.taxAmount.toLocaleString("en-IN")}
+                {/* Tax / GST */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      GST / Tax Applicable
                     </span>
+                    <Switch
+                      id="tax-applicable-switch"
+                      checked={formData.taxApplicable}
+                      onChange={(checked) =>
+                        handleChange("taxApplicable", checked)
+                      }
+                    />
                   </div>
-                )}
-              </div>
 
-              <div className="text-right">
-                <span className="text-xs text-muted block">
-                  Calculated Grand Total
-                </span>
-                <span className="font-mono text-2xl font-extrabold text-foreground">
-                  ₹{financialCalculations.totalAmount.toLocaleString("en-IN")}
-                </span>
+                  {formData.taxApplicable && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <Select
+                        id="tax-type-select"
+                        value={formData.taxType}
+                        onChange={(e) =>
+                          handleChange("taxType", e.target.value)
+                        }
+                        options={TAX_TYPES}
+                      />
+                      <Input
+                        id="tax-rate-input"
+                        type="number"
+                        placeholder="Tax Rate %"
+                        value={formData.taxRate}
+                        onChange={(e) =>
+                          handleChange("taxRate", e.target.value)
+                        }
+                        error={errors.taxRate}
+                      />
+                    </div>
+                  )}
+                  {errors.taxRate && (
+                    <p className="text-xs text-rose-500 mt-1">
+                      {errors.taxRate}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </section>
 
-        {/* 7. Advance Payment & Balance */}
-        <Card>
-          <CardHeader>
-            <CardTitle>7. Advance Payment</CardTitle>
-            <CardDescription>
-              Record initial payment receipt and track remaining balance.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <FormField
-                label="Advance Amount (₹)"
-                error={errors.advanceAmount}
-              >
-                {({ id }) => (
+          {/* 6. Advance Payment & General Notes */}
+          <section
+            id="section-advance-notes"
+            className="bg-white dark:bg-[#161822] border border-slate-200 dark:border-[#262837] rounded-xl p-5 sm:p-6 shadow-xs hover:border-violet-300 dark:hover:border-violet-700/50 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 flex items-center justify-center font-bold text-sm">
+                6
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  Advance Payment & Remarks
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Capture advance receipt, payment mode, reference ID, and
+                  operational remarks.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label
+                    htmlFor="advance-amount-input"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                  >
+                    Advance Amount (₹)
+                  </label>
                   <Input
-                    id={id}
+                    id="advance-amount-input"
                     type="number"
                     placeholder="0"
                     value={formData.advanceAmount}
                     onChange={(e) =>
                       handleChange("advanceAmount", e.target.value)
                     }
+                    error={errors.advanceAmount}
                   />
-                )}
-              </FormField>
+                  {errors.advanceAmount && (
+                    <p className="text-xs text-rose-500 mt-1">
+                      {errors.advanceAmount}
+                    </p>
+                  )}
+                </div>
 
-              <FormField label="Payment Mode">
-                {({ id }) => (
+                <div>
+                  <label
+                    htmlFor="advance-mode-select"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                  >
+                    Payment Mode
+                  </label>
                   <Select
-                    id={id}
+                    id="advance-mode-select"
                     value={formData.advancePaymentMode}
                     onChange={(e) =>
                       handleChange("advancePaymentMode", e.target.value)
                     }
                     options={PAYMENT_MODES}
                   />
-                )}
-              </FormField>
+                </div>
 
-              <FormField label="Reference / Transaction No.">
-                {({ id }) => (
+                <div>
+                  <label
+                    htmlFor="advance-ref-input"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                  >
+                    Transaction / Ref No.
+                  </label>
                   <Input
-                    id={id}
-                    placeholder="UPI / Cheque / Ref ID"
+                    id="advance-ref-input"
+                    placeholder="UPI / Cheque / UTR"
                     value={formData.advancePaymentReference}
                     onChange={(e) =>
                       handleChange("advancePaymentReference", e.target.value)
                     }
                   />
-                )}
-              </FormField>
+                </div>
 
-              <FormField label="Payment Date">
-                {({ id }) => (
+                <div>
+                  <label
+                    htmlFor="advance-date-input"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                  >
+                    Payment Date
+                  </label>
                   <DatePicker
-                    id={id}
+                    id="advance-date-input"
                     value={formData.advancePaymentDate}
                     onChange={(e) =>
                       handleChange("advancePaymentDate", e.target.value)
                     }
                   />
-                )}
-              </FormField>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="notes-textarea"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                >
+                  General Operational Notes / Remarks
+                </label>
+                <Textarea
+                  id="notes-textarea"
+                  rows={2}
+                  placeholder="e.g. VIP client, preferred AC temp, route restrictions, special requests..."
+                  value={formData.notes}
+                  onChange={(e) => handleChange("notes", e.target.value)}
+                />
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Right Column: Sticky Summary & Actions (Stitch Command Center) */}
+        <div className="xl:col-span-4 space-y-6 xl:sticky xl:top-6">
+          {/* Financial & Booking Summary Card */}
+          <div
+            id="trip-summary-card"
+            className="bg-white dark:bg-[#161822] border border-slate-200 dark:border-[#262837] rounded-xl p-5 sm:p-6 shadow-sm space-y-5"
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-[#262837] pb-3">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+                Financial Summary
+              </h2>
+              <span
+                id="summary-payment-status-badge"
+                className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                  financialCalculations.paymentStatus === "paid"
+                    ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60"
+                    : financialCalculations.paymentStatus === "partially_paid"
+                      ? "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/60"
+                      : "bg-slate-100 dark:bg-[#1f2230] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-[#262837]"
+                }`}
+              >
+                {PAYMENT_STATUS_LABELS[financialCalculations.paymentStatus] ||
+                  financialCalculations.paymentStatus}
+              </span>
             </div>
 
-            {/* Calculated Balance & Payment Status Banner */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-border">
-              <div className="p-3 rounded-md bg-background/50 border border-border flex items-center justify-between">
-                <span className="text-xs text-muted">Remaining Balance:</span>
-                <span className="font-mono text-lg font-bold text-foreground">
+            {/* Live Pricing Breakdown */}
+            <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+              <div className="flex justify-between items-center">
+                <span>Base Rate</span>
+                <span className="font-mono font-medium text-slate-900 dark:text-slate-100">
+                  ₹{Number(formData.baseRate || 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+
+              {financialCalculations.subtotal - Number(formData.baseRate || 0) >
+                0 && (
+                <div className="flex justify-between items-center">
+                  <span>Additional Charges</span>
+                  <span className="font-mono font-medium text-slate-900 dark:text-slate-100">
+                    +₹
+                    {(
+                      financialCalculations.subtotal -
+                      Number(formData.baseRate || 0)
+                    ).toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
+
+              {financialCalculations.discountAmount > 0 && (
+                <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span>Discount</span>
+                  <span className="font-mono">
+                    -₹
+                    {financialCalculations.discountAmount.toLocaleString(
+                      "en-IN",
+                    )}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/80 dark:border-[#262837]">
+                <span>Subtotal</span>
+                <span className="font-mono font-medium text-slate-900 dark:text-slate-100">
+                  ₹{financialCalculations.subtotal.toLocaleString("en-IN")}
+                </span>
+              </div>
+
+              {formData.taxApplicable && (
+                <div className="flex justify-between items-center">
+                  <span>Tax ({formData.taxRate}%)</span>
+                  <span className="font-mono font-medium text-slate-900 dark:text-slate-100">
+                    +₹{financialCalculations.taxAmount.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 dark:border-[#262837]">
+                <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  Grand Total
+                </span>
+                <span
+                  id="summary-grand-total"
+                  className="font-mono text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100"
+                >
+                  ₹{financialCalculations.totalAmount.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+
+            {/* Advance & Balance Box */}
+            <div className="p-3.5 bg-slate-50 dark:bg-[#13151f] rounded-xl border border-slate-200 dark:border-[#262837] space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">
+                  Advance Received:
+                </span>
+                <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                  ₹{Number(formData.advanceAmount || 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/80 dark:border-[#262837]">
+                <span className="font-bold text-slate-700 dark:text-slate-200">
+                  Balance Due:
+                </span>
+                <span
+                  id="summary-balance-due"
+                  className={`font-mono text-base font-bold ${
+                    financialCalculations.balanceAmount > 0
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "text-emerald-600 dark:text-emerald-400"
+                  }`}
+                >
                   ₹{financialCalculations.balanceAmount.toLocaleString("en-IN")}
                 </span>
               </div>
+            </div>
 
-              <div className="p-3 rounded-md bg-background/50 border border-border flex items-center justify-between">
-                <span className="text-xs text-muted">Calculated Status:</span>
-                <span className="text-xs font-bold uppercase tracking-wider capitalize">
-                  {financialCalculations.paymentStatus.replace("_", " ")}
+            {/* Real Booking Readiness Checklist */}
+            <div className="pt-2 border-t border-slate-200 dark:border-[#262837] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Booking Readiness
+                </h3>
+                <span
+                  id="readiness-overall-status"
+                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                    readiness.isAllReady
+                      ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
+                      : "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400"
+                  }`}
+                >
+                  {readiness.isAllReady ? "Ready to Confirm" : "Incomplete"}
                 </span>
               </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* 8. Additional Notes */}
-        <Card>
-          <CardHeader>
-            <CardTitle>8. General Notes</CardTitle>
-            <CardDescription>
-              Special requests, itinerary remarks, or customer communication
-              logs.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              rows={3}
-              placeholder="e.g. VIP client, preferred AC temperature 22°C, toll receipts required for reimbursement..."
-              value={formData.notes}
-              onChange={(e) => handleChange("notes", e.target.value)}
-            />
-          </CardContent>
-          <CardFooter className="flex flex-wrap items-center justify-end gap-2 border-t border-border p-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => navigate("/trips")}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => handleSubmit("draft")}
-              disabled={isSubmitting}
-            >
-              Save as Draft
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => handleSubmit("confirmed")}
-              disabled={isSubmitting}
-            >
-              {isEditMode ? "Save Changes" : "Confirm Booking"}
-            </Button>
-          </CardFooter>
-        </Card>
+              <ul className="space-y-1.5 text-xs">
+                <li
+                  id="readiness-item-customer"
+                  className="flex items-center gap-2 text-slate-600 dark:text-slate-300"
+                >
+                  <span
+                    className={`material-symbols-outlined text-[17px] ${
+                      readiness.isCustomerAssigned
+                        ? "text-emerald-500"
+                        : "text-slate-300 dark:text-slate-600"
+                    }`}
+                  >
+                    {readiness.isCustomerAssigned
+                      ? "check_circle"
+                      : "radio_button_unchecked"}
+                  </span>
+                  <span>Customer Assigned</span>
+                </li>
+
+                <li
+                  id="readiness-item-route"
+                  className="flex items-center gap-2 text-slate-600 dark:text-slate-300"
+                >
+                  <span
+                    className={`material-symbols-outlined text-[17px] ${
+                      readiness.isRouteDefined
+                        ? "text-emerald-500"
+                        : "text-slate-300 dark:text-slate-600"
+                    }`}
+                  >
+                    {readiness.isRouteDefined
+                      ? "check_circle"
+                      : "radio_button_unchecked"}
+                  </span>
+                  <span>Route Defined</span>
+                </li>
+
+                <li
+                  id="readiness-item-schedule"
+                  className="flex items-center gap-2 text-slate-600 dark:text-slate-300"
+                >
+                  <span
+                    className={`material-symbols-outlined text-[17px] ${
+                      readiness.isScheduleValid
+                        ? "text-emerald-500"
+                        : "text-slate-300 dark:text-slate-600"
+                    }`}
+                  >
+                    {readiness.isScheduleValid
+                      ? "check_circle"
+                      : "radio_button_unchecked"}
+                  </span>
+                  <span>Schedule Valid</span>
+                </li>
+
+                <li
+                  id="readiness-item-vehicle"
+                  className="flex items-center gap-2 text-slate-600 dark:text-slate-300"
+                >
+                  <span
+                    className={`material-symbols-outlined text-[17px] ${
+                      readiness.isVehicleAvailable
+                        ? "text-emerald-500"
+                        : vehicleConflicts.length > 0
+                          ? "text-rose-500"
+                          : "text-slate-300 dark:text-slate-600"
+                    }`}
+                  >
+                    {readiness.isVehicleAvailable
+                      ? "check_circle"
+                      : vehicleConflicts.length > 0
+                        ? "error"
+                        : "radio_button_unchecked"}
+                  </span>
+                  <span>
+                    Vehicle Allocated{" "}
+                    {vehicleConflicts.length > 0 && "(Conflict)"}
+                  </span>
+                </li>
+
+                <li
+                  id="readiness-item-driver"
+                  className="flex items-center gap-2 text-slate-600 dark:text-slate-300"
+                >
+                  <span
+                    className={`material-symbols-outlined text-[17px] ${
+                      readiness.isDriverEligibleAndAvailable
+                        ? "text-emerald-500"
+                        : driverConflicts.length > 0 || !driverEligibility
+                          ? "text-rose-500"
+                          : "text-slate-300 dark:text-slate-600"
+                    }`}
+                  >
+                    {readiness.isDriverEligibleAndAvailable
+                      ? "check_circle"
+                      : driverConflicts.length > 0 || !driverEligibility
+                        ? "error"
+                        : "radio_button_unchecked"}
+                  </span>
+                  <span>
+                    Driver Assigned{" "}
+                    {!driverEligibility
+                      ? "(Ineligible)"
+                      : driverConflicts.length > 0
+                        ? "(Conflict)"
+                        : ""}
+                  </span>
+                </li>
+
+                <li
+                  id="readiness-item-pricing"
+                  className="flex items-center gap-2 text-slate-600 dark:text-slate-300"
+                >
+                  <span
+                    className={`material-symbols-outlined text-[17px] ${
+                      readiness.isPricingCompleted
+                        ? "text-emerald-500"
+                        : "text-slate-300 dark:text-slate-600"
+                    }`}
+                  >
+                    {readiness.isPricingCompleted
+                      ? "check_circle"
+                      : "radio_button_unchecked"}
+                  </span>
+                  <span>Pricing Completed</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Bottom Actions inside Sidebar */}
+            <div className="pt-3 border-t border-slate-200 dark:border-[#262837] space-y-2.5">
+              <Button
+                id="trip-save-confirm-btn-side"
+                type="button"
+                variant="primary"
+                onClick={() =>
+                  handleSubmit(
+                    isEditMode && formData.status
+                      ? formData.status
+                      : "confirmed",
+                  )
+                }
+                disabled={isSubmitting}
+                className="w-full py-3 text-sm font-bold text-white bg-gradient-to-r from-[#06b6d4] to-[#8b5cf6] hover:from-[#0891b2] hover:to-[#7c3aed] shadow-md hover:shadow-lg transition-all rounded-lg cursor-pointer"
+              >
+                {isEditMode ? "Save Changes" : "Save & Confirm"}
+              </Button>
+
+              <Button
+                id="trip-save-draft-btn-side"
+                type="button"
+                variant="secondary"
+                onClick={() => handleSubmit("draft")}
+                disabled={isSubmitting}
+                className="w-full py-2.5 text-sm font-semibold rounded-lg"
+              >
+                Save as Draft
+              </Button>
+            </div>
+          </div>
+        </div>
       </form>
     </div>
   );
