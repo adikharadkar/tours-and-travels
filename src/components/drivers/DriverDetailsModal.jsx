@@ -19,13 +19,7 @@ import {
   LICENSE_TYPE_LABELS,
 } from "../../constants/drivers";
 import { states } from "../../constants/india";
-
-const formatValue = (value) => {
-  if (value === null || value === undefined || value === "") {
-    return "—";
-  }
-  return value;
-};
+import formatValue from "../../utils/formatValue";
 
 const formatDate = (value) => {
   if (!value) {

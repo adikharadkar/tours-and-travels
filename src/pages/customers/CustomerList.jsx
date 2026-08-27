@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 import Button from "../../components/ui/Button";
 import Card, { CardContent } from "../../components/ui/Card";
-import Dropdown, { DropdownItem } from "../../components/ui/Dropdown";
+import FilterDropdown from "../../components/ui/FilterDropdown";
 import Checkbox from "../../components/ui/Checkbox";
 import Pagination from "../../components/ui/Pagination";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
@@ -11,55 +11,17 @@ import Toast from "../../components/ui/Toast";
 import CustomerCard from "./CustomerCard";
 import CustomerDetailsModal from "../../components/customer/CustomerDetailsModal";
 import { getCustomers, deleteCustomer } from "../../services/customerService";
-
-const CUSTOMER_TYPE_OPTIONS = [
-  { label: "All Customer Types", value: "all" },
-  { label: "Company", value: "company" },
-  { label: "Individual", value: "individual" },
-];
-
-const PAYMENT_STATUS_OPTIONS = [
-  { label: "All Payment Statuses", value: "all" },
-  { label: "Healthy (Current)", value: "healthy" },
-  { label: "Warning (Overdue)", value: "warning" },
-  { label: "Critical (Collections)", value: "critical" },
-];
+import {
+  CUSTOMER_TYPE_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
+} from "../../constants/customers";
+import {
+  formatFinancialAmount,
+  getAvatarColor,
+  getCustomerInitials,
+} from "../../utils/customers/helper";
 
 const ITEMS_PER_PAGE = 8;
-
-function getCustomerInitials(name) {
-  if (!name) return "CU";
-  const words = name.trim().split(/\s+/);
-  if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name, type, financialStatus) {
-  if (financialStatus === "critical") {
-    return "bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-700/50";
-  }
-
-  const normalizedType = String(type || "").toLowerCase();
-  if (normalizedType === "individual") {
-    // Distinct Amber/Teal/Indigo contrast for Individual
-    return "bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-700/50";
-  }
-
-  // Default Company avatar: Crisp indigo/violet with high contrast in light & dark mode
-  return "bg-indigo-100 text-indigo-900 border border-indigo-300 dark:bg-indigo-950/70 dark:text-indigo-200 dark:border-indigo-700/50";
-}
-
-function formatFinancialAmount(amount) {
-  const num = Number(amount || 0);
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(num);
-}
 
 function CustomerTypeBadge({ type }) {
   const normalized = String(type || "").toLowerCase();
@@ -135,61 +97,6 @@ function FinancialStatusCell({ customer }) {
         </span>
       </div>
     </div>
-  );
-}
-
-function FilterDropdown({ label, value, options, onChange }) {
-  const selectedOption =
-    options.find((opt) => opt.value === value) || options[0];
-  const isFiltered = value !== "all";
-
-  return (
-    <Dropdown
-      trigger={
-        <button
-          type="button"
-          className={[
-            "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer select-none",
-            isFiltered
-              ? "bg-cyan-50 text-cyan-800 border border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 shadow-xs ring-1 ring-cyan-500/20"
-              : "bg-slate-50 dark:bg-[#191b26] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
-          ].join(" ")}
-        >
-          <span>
-            {isFiltered ? `${label}: ${selectedOption.label}` : `${label}`}
-          </span>
-          <span className="material-symbols-outlined text-[16px] text-slate-400 dark:text-slate-400">
-            expand_more
-          </span>
-        </button>
-      }
-    >
-      <div className="py-1 min-w-[210px] max-h-[300px] overflow-y-auto">
-        {options.map((opt) => {
-          const isSelected = opt.value === value;
-          return (
-            <DropdownItem
-              key={opt.value}
-              onClick={() => onChange(opt.value)}
-              className={
-                isSelected
-                  ? "font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/50"
-                  : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#202330]"
-              }
-            >
-              <div className="flex items-center justify-between w-full">
-                <span>{opt.label}</span>
-                {isSelected && (
-                  <span className="material-symbols-outlined text-[16px] text-cyan-600 dark:text-cyan-400">
-                    check
-                  </span>
-                )}
-              </div>
-            </DropdownItem>
-          );
-        })}
-      </div>
-    </Dropdown>
   );
 }
 

@@ -9,88 +9,17 @@ import {
   updateCustomer,
   getCustomerById,
 } from "../../services/customerService";
-
-const PAYMENT_TERMS = [
-  { label: "Immediate", value: "immediate" },
-  { label: "Net 15 Days", value: "15_days" },
-  { label: "Net 30 Days", value: "30_days" },
-  { label: "Net 45 Days", value: "45_days" },
-  { label: "Net 60 Days", value: "60_days" },
-];
-
-const BILLING_CYCLES = [
-  { label: "Per Trip / Invoice", value: "per_trip" },
-  { label: "Daily", value: "daily" },
-  { label: "Weekly", value: "weekly" },
-  { label: "Monthly", value: "monthly" },
-];
-
-const OPENING_BALANCE_TYPES = [
-  { label: "Debit (Dr)", value: "debit" },
-  { label: "Credit (Cr)", value: "credit" },
-];
-
-const PREFIXES = [
-  { label: "Mr.", value: "mr" },
-  { label: "Mrs.", value: "mrs" },
-  { label: "Ms.", value: "ms" },
-  { label: "Dr.", value: "dr" },
-];
-
-const getToday = () => {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const initialFormData = {
-  customerCode: "Will be generated automatically",
-  registrationDate: getToday(),
-
-  prefix: "",
-  name: "",
-  customerType: "company",
-  contactPerson: "",
-
-  mobile1: "",
-  mobile2: "",
-  email: "",
-  alternateEmail: "",
-
-  address: "",
-  city: "",
-  state: "",
-  stateCode: "",
-  pinCode: "",
-
-  gstNumber: "",
-  pan: "",
-  vendorCode: "",
-  billingName: "",
-  billingSameAsAddress: true,
-  billingAddress: "",
-  billingCity: "",
-  billingState: "",
-  billingStateCode: "",
-  billingPinCode: "",
-
-  openingBalance: "0.00",
-  openingBalanceType: "debit",
-  creditLimit: "",
-  paymentTerms: "30_days",
-  billingCycle: "monthly",
-
-  dateOfBirth: "",
-  marriageDate: "",
-  notes: "",
-
-  isActive: true,
-};
+import {
+  PAYMENT_TERMS,
+  BILLING_CYCLES,
+  OPENING_BALANCE_TYPES,
+  PREFIXES,
+  INITIAL_FORM_DATA,
+} from "../../constants/customers";
+import { buildCustomerPayload } from "../../utils/customers/helper";
 
 export default function CustomerForm() {
-  const [formData, setFormData] = useState(initialFormData);
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,7 +46,7 @@ export default function CustomerForm() {
     }
 
     setFormData({
-      ...initialFormData,
+      ...INITIAL_FORM_DATA,
       ...customer,
       vendorCode: customer.vendorCode || customer.customerVendorCode || "",
       openingBalance:
@@ -289,70 +218,6 @@ export default function CustomerForm() {
       ...previous,
       billingSameAsAddress: false,
     }));
-  };
-
-  const buildCustomerPayload = (data) => {
-    // If billing same as address is true, ensure billing name is present
-    const resolvedBillingName = data.billingSameAsAddress
-      ? (data.billingName || data.name).trim()
-      : data.billingName.trim();
-
-    const resolvedBillingAddress = data.billingSameAsAddress
-      ? data.address.trim()
-      : data.billingAddress.trim();
-
-    const resolvedBillingCity = data.billingSameAsAddress
-      ? data.city
-      : data.billingCity;
-
-    const resolvedBillingState = data.billingSameAsAddress
-      ? data.state
-      : data.billingState;
-
-    const resolvedBillingStateCode = data.billingSameAsAddress
-      ? data.stateCode
-      : data.billingStateCode;
-
-    const resolvedBillingPinCode = data.billingSameAsAddress
-      ? data.pinCode
-      : data.billingPinCode;
-
-    return {
-      registrationDate: data.registrationDate,
-      customerType: data.customerType,
-      prefix: data.prefix,
-      name: data.name.trim(),
-      contactPerson: data.contactPerson.trim(),
-      mobile1: data.mobile1.trim(),
-      mobile2: data.mobile2.trim(),
-      email: data.email.trim().toLowerCase(),
-      alternateEmail: data.alternateEmail.trim().toLowerCase(),
-      address: data.address.trim(),
-      city: data.city,
-      state: data.state,
-      stateCode: data.stateCode,
-      pinCode: data.pinCode,
-      gstNumber: data.gstNumber.trim().toUpperCase(),
-      pan: data.pan.trim().toUpperCase(),
-      vendorCode: data.vendorCode.trim(),
-      customerVendorCode: data.vendorCode.trim(),
-      billingName: resolvedBillingName,
-      billingSameAsAddress: data.billingSameAsAddress,
-      billingAddress: resolvedBillingAddress,
-      billingCity: resolvedBillingCity,
-      billingState: resolvedBillingState,
-      billingStateCode: resolvedBillingStateCode,
-      billingPinCode: resolvedBillingPinCode,
-      openingBalance: Number(data.openingBalance) || 0,
-      openingBalanceType: data.openingBalanceType || "debit",
-      creditLimit: data.creditLimit === "" ? 0 : Number(data.creditLimit),
-      paymentTerms: data.paymentTerms,
-      billingCycle: data.billingCycle,
-      dateOfBirth: data.dateOfBirth || null,
-      marriageDate: data.marriageDate || null,
-      notes: data.notes.trim(),
-      isActive: data.isActive,
-    };
   };
 
   const handleSubmit = (event) => {

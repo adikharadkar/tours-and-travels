@@ -1,18 +1,8 @@
 import Card, { CardContent } from "../../components/ui/Card";
 
 import Button from "../../components/ui/Button";
-
+import { STATUS_CLASSES } from "../../constants/customers";
 import { getCustomerAccountStatus } from "../../utils/customerAccountStatus";
-
-const STATUS_CLASSES = {
-  active: "bg-success/10 text-success",
-  inactive: "bg-muted/20 text-muted",
-
-  no_dues: "bg-success/10 text-success",
-  due: "bg-warning/10 text-warning",
-  overdue: "bg-error/10 text-error",
-  credit: "bg-primary/10 text-primary",
-};
 
 function StatusBadge({ value, label }) {
   return (

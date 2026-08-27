@@ -9,90 +9,16 @@ import {
   ModalTitle,
 } from "../ui/Modal";
 import Button from "../ui/Button";
-
-const formatValue = (value) => {
-  if (value === null || value === undefined || value === "") {
-    return "—";
-  }
-  return value;
-};
-
-const formatCustomerType = (value) => {
-  if (value === "company") {
-    return "Company";
-  }
-  if (value === "individual") {
-    return "Individual";
-  }
-  return "—";
-};
-
-const formatPaymentTerms = (value) => {
-  const labels = {
-    immediate: "Immediate",
-    "15_days": "15 Days",
-    "30_days": "30 Days",
-    "45_days": "45 Days",
-    "60_days": "60 Days",
-  };
-  return labels[value] ?? "—";
-};
-
-const formatBillingCycle = (value) => {
-  const labels = {
-    per_trip: "Per Trip",
-    daily: "Daily",
-    weekly: "Weekly",
-    monthly: "Monthly",
-  };
-  return labels[value] ?? "—";
-};
-
-const formatOpeningBalanceType = (value) => {
-  if (value === "debit") {
-    return "Debit";
-  }
-  if (value === "credit") {
-    return "Credit";
-  }
-  return "—";
-};
-
-const formatDate = (value) => {
-  if (!value) {
-    return "—";
-  }
-  const dateOnly = String(value).split("T")[0];
-  const [year, month, day] = dateOnly.split("-");
-  if (!year || !month || !day) {
-    return value;
-  }
-  return `${day}/${month}/${year}`;
-};
-
-const formatCurrency = (value) => {
-  if (value === null || value === undefined || value === "") {
-    return "—";
-  }
-  const amount = Number(value);
-  if (Number.isNaN(amount)) {
-    return value;
-  }
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2,
-  }).format(amount);
-};
-
-function getCustomerInitials(name) {
-  if (!name) return "CU";
-  const words = name.trim().split(/\s+/);
-  if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-}
+import formatValue from "../../utils/formatValue";
+import {
+  getCustomerInitials,
+  formatCustomerType,
+  formatPaymentTerms,
+  formatBillingCycle,
+  formatOpeningBalanceType,
+  formatDate,
+  formatCurrency,
+} from "../../utils/customers/helper";
 
 function DetailItem({ label, value, subtext, className = "", children }) {
   return (

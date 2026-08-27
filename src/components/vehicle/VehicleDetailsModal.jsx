@@ -9,13 +9,7 @@ import {
   FUEL_TYPE_LABELS,
   OWNERSHIP_TYPE_LABELS,
 } from "../../constants/vehicles";
-
-const formatValue = (value) => {
-  if (value === null || value === undefined || value === "") {
-    return "—";
-  }
-  return value;
-};
+import formatValue from "../../utils/formatValue";
 
 const formatDate = (value) => {
   if (!value) {
