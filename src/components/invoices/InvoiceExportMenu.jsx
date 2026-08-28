@@ -31,7 +31,6 @@ export default function InvoiceExportMenu({
 
     const updatePosition = () => {
       if (!menuRef.current) return;
-
       const rect = menuRef.current.getBoundingClientRect();
       const menuWidth = 240;
       const spaceBelow = window.innerHeight - rect.bottom;
@@ -47,13 +46,13 @@ export default function InvoiceExportMenu({
       setEffectiveDirection(openUp ? "up" : "down");
 
       let calculatedLeft;
-
       if (align === "left") {
         calculatedLeft = rect.left;
       } else {
         calculatedLeft = rect.right - menuWidth;
       }
 
+      // Keep within viewport boundaries
       if (typeof window !== "undefined" && window.innerWidth > 0) {
         calculatedLeft = Math.max(
           8,
@@ -62,7 +61,6 @@ export default function InvoiceExportMenu({
       }
 
       let calculatedTop;
-
       if (openUp) {
         calculatedTop = Math.max(8, rect.top - 6);
       } else {

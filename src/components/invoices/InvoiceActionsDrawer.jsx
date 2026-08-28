@@ -19,6 +19,7 @@ export default function InvoiceActionsDrawer({
   onClose,
   invoice,
   customer,
+  trip: _trip = null,
   onViewDetails,
   onRecordPayment,
   onIssueInvoice,
