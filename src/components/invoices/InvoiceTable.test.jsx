@@ -120,88 +120,34 @@ describe("InvoiceTable", () => {
     expect(props.onViewInvoice).toHaveBeenCalledTimes(1);
   });
 
-  it("shows Record Payment for an active unpaid invoice", () => {
+  it("renders the 3-dots actions button", () => {
     render(<InvoiceTable {...createProps()} />);
 
-    expect(screen.getByTitle("Record Payment")).toBeInTheDocument();
+    expect(screen.getByTitle("Invoice Actions")).toBeInTheDocument();
   });
 
-  it("calls onRecordPayment when Record Payment is clicked", () => {
-    const props = createProps();
+  it("calls onOpenActionsDrawer when 3-dots actions button is clicked", () => {
+    const onOpenActionsDrawer = vi.fn();
+    const props = createProps({ onOpenActionsDrawer });
 
     render(<InvoiceTable {...props} />);
 
-    fireEvent.click(screen.getByTitle("Record Payment"));
+    fireEvent.click(screen.getByTitle("Invoice Actions"));
 
-    expect(props.onRecordPayment).toHaveBeenCalledTimes(1);
-
-    expect(props.onRecordPayment).toHaveBeenCalledWith(mockInvoice);
+    expect(onOpenActionsDrawer).toHaveBeenCalledTimes(1);
+    expect(onOpenActionsDrawer).toHaveBeenCalledWith(mockInvoice);
   });
 
-  it("does not trigger row click when Record Payment is clicked", () => {
-    const props = createProps();
+  it("does not trigger row click when 3-dots actions button is clicked", () => {
+    const onOpenActionsDrawer = vi.fn();
+    const props = createProps({ onOpenActionsDrawer });
 
     render(<InvoiceTable {...props} />);
 
-    fireEvent.click(screen.getByTitle("Record Payment"));
+    fireEvent.click(screen.getByTitle("Invoice Actions"));
 
-    expect(props.onRecordPayment).toHaveBeenCalledTimes(1);
-
+    expect(onOpenActionsDrawer).toHaveBeenCalledTimes(1);
     expect(props.onViewInvoice).not.toHaveBeenCalled();
-  });
-
-  it("does not show Record Payment for a draft invoice", () => {
-    const invoice = {
-      ...mockInvoice,
-      documentStatus: "draft",
-    };
-
-    render(
-      <InvoiceTable
-        {...createProps({
-          invoices: [invoice],
-        })}
-      />,
-    );
-
-    expect(screen.queryByTitle("Record Payment")).not.toBeInTheDocument();
-  });
-
-  it("does not show Record Payment for a cancelled invoice", () => {
-    const invoice = {
-      ...mockInvoice,
-      documentStatus: "cancelled",
-    };
-
-    render(
-      <InvoiceTable
-        {...createProps({
-          invoices: [invoice],
-        })}
-      />,
-    );
-
-    expect(screen.queryByTitle("Record Payment")).not.toBeInTheDocument();
-  });
-
-  it("does not show Record Payment for a fully paid invoice", () => {
-    const invoice = {
-      ...mockInvoice,
-      paymentStatus: "paid",
-      paidAmount: 54280,
-    };
-
-    render(
-      <InvoiceTable
-        {...createProps({
-          invoices: [invoice],
-        })}
-      />,
-    );
-
-    expect(screen.queryByTitle("Record Payment")).not.toBeInTheDocument();
-
-    expect(screen.getByText("Fully Paid")).toBeInTheDocument();
   });
 
   it("shows only the document status for a draft invoice", () => {

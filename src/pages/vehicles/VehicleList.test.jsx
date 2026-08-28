@@ -142,7 +142,7 @@ describe("VehicleList Component", () => {
     expect(screen.getByText("EXPIRED DOCS")).toBeInTheDocument();
 
     // Total Fleet: 3
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getAllByText("3").length).toBeGreaterThan(0);
   });
 
   it("renders attention banner when expired documents exist", () => {

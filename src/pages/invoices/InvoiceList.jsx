@@ -8,6 +8,7 @@ import InvoiceMobileCard from "../../components/invoices/InvoiceMobileCard";
 import InvoiceMobileSkeleton from "../../components/invoices/InvoiceMobileSkeleton";
 import InvoiceMobileFilterDrawer from "../../components/invoices/InvoiceMobileFilterDrawer";
 import InvoiceDetailsModal from "../../components/invoices/InvoiceDetailsModal";
+import InvoiceActionsDrawer from "../../components/invoices/InvoiceActionsDrawer";
 import RecordPaymentModal from "../../components/invoices/RecordPaymentModal";
 import NewInvoiceModal from "../../components/invoices/NewInvoiceModal";
 import ConsolidatedInvoiceModal from "../../components/invoices/ConsolidatedInvoiceModal";
@@ -57,8 +58,9 @@ export default function InvoiceList() {
   const [sortDirection, setSortDirection] = useState("desc");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Modal and toast state
+  // Modal, drawer and toast state
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [actionDrawerInvoice, setActionDrawerInvoice] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isNewInvoiceOpen, setIsNewInvoiceOpen] = useState(false);
@@ -813,6 +815,7 @@ export default function InvoiceList() {
             sortDirection={sortDirection}
             onSort={handleSort}
             onViewInvoice={handleViewInvoice}
+            onOpenActionsDrawer={(invoice) => setActionDrawerInvoice(invoice)}
             onRecordPayment={handleOpenRecordPayment}
           />
         </div>
@@ -911,8 +914,46 @@ export default function InvoiceList() {
       />
 
       {/* ======================================================== */}
-      {/* 10. MODALS (Shared across Desktop and Mobile)            */}
+      {/* 10. MODALS & DRAWERS (Shared across Desktop and Mobile)  */}
       {/* ======================================================== */}
+      {/* 0. Invoice Actions Drawer */}
+      <InvoiceActionsDrawer
+        open={Boolean(actionDrawerInvoice)}
+        onClose={() => setActionDrawerInvoice(null)}
+        invoice={actionDrawerInvoice}
+        customer={customers?.find(
+          (c) =>
+            c.id === actionDrawerInvoice?.customerId ||
+            c.customerCode === actionDrawerInvoice?.customerCode ||
+            c.name === actionDrawerInvoice?.customerName,
+        )}
+        trip={trips?.find(
+          (t) =>
+            t.id === actionDrawerInvoice?.tripId ||
+            t.tripCode === actionDrawerInvoice?.tripCode,
+        )}
+        onViewDetails={(inv) => {
+          setActionDrawerInvoice(null);
+          handleViewInvoice(inv);
+        }}
+        onRecordPayment={(inv) => {
+          setActionDrawerInvoice(null);
+          handleOpenRecordPayment(inv);
+        }}
+        onIssueInvoice={(inv) => {
+          setActionDrawerInvoice(null);
+          handleIssueInvoice(inv);
+        }}
+        onCancelInvoice={(inv) => {
+          setActionDrawerInvoice(null);
+          setInvoiceToCancel(inv);
+        }}
+        onNavigateToTrip={() => {
+          setActionDrawerInvoice(null);
+          navigate("/trips");
+        }}
+      />
+
       {/* 1. Details Modal */}
       <InvoiceDetailsModal
         open={isDetailsOpen}

@@ -298,10 +298,14 @@ export default function VehicleList() {
   ]);
 
   const totalPages = Math.ceil(filteredVehicles.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(
+    startIndex + ITEMS_PER_PAGE,
+    filteredVehicles.length,
+  );
   const paginatedVehicles = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredVehicles.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredVehicles, currentPage]);
+    return filteredVehicles.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredVehicles, startIndex]);
 
   const hasActiveFilters =
     search.trim() !== "" ||
@@ -1094,22 +1098,22 @@ export default function VehicleList() {
 
       {/* Main Content Area */}
       {loadError ? (
-        <Card className="border-rose-500/30 bg-rose-500/5 p-6 text-center">
+        <Card className="border-rose-500/30 bg-rose-500/5 p-6 text-center rounded-xl">
           <p className="text-sm font-medium text-rose-600 dark:text-rose-400">
             {loadError}
           </p>
         </Card>
       ) : vehicles.length === 0 ? (
-        <Card className="py-12 text-center border border-slate-200 dark:border-[#27272a] bg-white dark:bg-[#121314]">
+        <Card className="py-12 text-center border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] rounded-xl shadow-xs">
           <CardContent className="space-y-4">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 dark:text-[#d0bcff] font-bold text-2xl">
               🚌
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900 dark:text-[#e3e2e3]">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
                 No vehicles added yet
               </h3>
-              <p className="mt-1 text-xs text-slate-500 dark:text-[#958ea0]">
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 Create your first vehicle master record to start managing your
                 fleet operations.
               </p>
@@ -1125,12 +1129,12 @@ export default function VehicleList() {
           </CardContent>
         </Card>
       ) : filteredVehicles.length === 0 ? (
-        <Card className="py-12 text-center border border-slate-200 dark:border-[#27272a] bg-white dark:bg-[#121314]">
+        <Card className="py-12 text-center border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] rounded-xl shadow-xs">
           <CardContent className="space-y-3">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-[#e3e2e3]">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
               No matching vehicles found
             </h3>
-            <p className="text-xs text-slate-500 dark:text-[#958ea0]">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               No vehicles matched your search query and active filter criteria.
             </p>
             <Button
@@ -1145,8 +1149,8 @@ export default function VehicleList() {
         </Card>
       ) : (
         <>
-          {/* Mobile View: High Quality Cards */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:hidden">
+          {/* Mobile View: High Quality Cards (< md) */}
+          <div className="grid grid-cols-1 gap-4 md:hidden">
             {paginatedVehicles.map((vehicle, idx) => (
               <VehicleCard
                 key={vehicle.id || vehicle.vehicleCode || `veh_card_${idx}`}
@@ -1158,37 +1162,86 @@ export default function VehicleList() {
                 onDelete={(v) => setVehicleToDelete(v)}
               />
             ))}
+
+            {/* Mobile Pagination */}
+            <div className="flex justify-center pt-2">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => setCurrentPage(page)}
+                compact={true}
+              />
+            </div>
           </div>
 
-          {/* Desktop View: Precision Stitch Table */}
+          {/* Desktop View: Precision FleetCore Table */}
           <div className="hidden md:block">
-            <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-[#27272a] bg-white dark:bg-[#121314] shadow-2xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] shadow-xs">
+              {/* Table Header Bar */}
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-[#262837] flex justify-between items-center bg-white dark:bg-[#161822]">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                    Fleet Registry
+                  </h3>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold font-mono bg-slate-100 dark:bg-[#1f2230] text-slate-600 dark:text-slate-300">
+                    {filteredVehicles.length}
+                  </span>
+                </div>
+
+                <div className="text-xs text-slate-400">
+                  {operationalTab !== "all" && (
+                    <span className="font-medium text-cyan-600 dark:text-cyan-400">
+                      Filtering by:{" "}
+                      {operationalTab.replace(/_/g, " ").toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="w-full overflow-x-auto">
+                <table className="w-full border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-[#27272a] bg-slate-50/75 dark:bg-[#18191c]">
-                      <th className="py-3 px-4 font-mono font-medium tracking-wider text-[11px] text-slate-500 dark:text-[#958ea0] uppercase">
+                    <tr className="border-b border-slate-200 dark:border-[#262837] bg-slate-50/70 dark:bg-[#13151f]">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
+                      >
                         REG / ID
                       </th>
-                      <th className="py-3 px-4 font-mono font-medium tracking-wider text-[11px] text-slate-500 dark:text-[#958ea0] uppercase">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
+                      >
                         MAKE & MODEL
                       </th>
-                      <th className="py-3 px-4 font-mono font-medium tracking-wider text-[11px] text-slate-500 dark:text-[#958ea0] uppercase">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
+                      >
                         CAPACITY / TYPE
                       </th>
-                      <th className="py-3 px-4 font-mono font-medium tracking-wider text-[11px] text-slate-500 dark:text-[#958ea0] uppercase">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
+                      >
                         STATUS / ACTIVITY
                       </th>
-                      <th className="py-3 px-4 font-mono font-medium tracking-wider text-[11px] text-slate-500 dark:text-[#958ea0] uppercase">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
+                      >
                         COMPLIANCE
                       </th>
-                      <th className="py-3 px-4 font-mono font-medium tracking-wider text-[11px] text-slate-500 dark:text-[#958ea0] uppercase text-right">
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
+                      >
                         ACTIONS
                       </th>
                     </tr>
                   </thead>
 
-                  <tbody className="divide-y divide-slate-100 dark:divide-[#27272a]/60">
+                  <tbody className="divide-y divide-slate-100 dark:divide-[#202330]">
                     {paginatedVehicles.map((vehicle, idx) => {
                       const docStatus = getVehicleDocumentStatus(vehicle);
                       const operational = getVehicleOperationalState(
@@ -1209,6 +1262,16 @@ export default function VehicleList() {
 
                       const criticalDoc = docStatus.criticalItems?.[0];
 
+                      // Left indicator bar matching TripList
+                      let leftBarColor = "border-l-transparent";
+                      if (docStatus.value === "expired") {
+                        leftBarColor = "border-l-4 border-l-rose-500";
+                      } else if (operational.operationalStatus === "on_trip") {
+                        leftBarColor = "border-l-4 border-l-purple-500";
+                      } else if (vehicle.isActive !== false) {
+                        leftBarColor = "border-l-4 border-l-emerald-500";
+                      }
+
                       return (
                         <tr
                           key={
@@ -1217,109 +1280,116 @@ export default function VehicleList() {
                             `veh_row_${idx}`
                           }
                           className={[
-                            "transition-colors duration-150",
-                            "hover:bg-slate-50/80 dark:hover:bg-[#1a1b1e]",
+                            "transition-colors duration-150 relative",
+                            leftBarColor,
                             isHighlighted
-                              ? "bg-purple-500/10 dark:bg-purple-500/15 ring-1 ring-inset ring-purple-500/30"
-                              : "",
+                              ? "bg-cyan-500/10 dark:bg-cyan-950/40 ring-1 ring-inset ring-cyan-400/40"
+                              : "hover:bg-slate-50/80 dark:hover:bg-[#1a1c28]",
                           ].join(" ")}
                         >
                           {/* REG / ID */}
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <div className="font-bold font-mono text-sm tracking-tight text-slate-900 dark:text-[#e3e2e3]">
-                              {vehicle.vehicleNumber}
-                            </div>
-                            <div className="font-mono text-[11px] text-slate-500 dark:text-[#958ea0]">
-                              {vehicle.vehicleCode}
+                          <td className="px-4 py-3 align-middle whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">
+                                {vehicle.vehicleNumber}
+                              </span>
+                              <span className="text-[11px] text-slate-400 dark:text-slate-400 font-medium font-mono">
+                                {vehicle.vehicleCode}
+                              </span>
                             </div>
                           </td>
 
                           {/* MAKE & MODEL */}
-                          <td className="py-3 px-4">
-                            <div className="font-medium text-slate-900 dark:text-[#e3e2e3] truncate max-w-[200px]">
-                              {vehicle.make} {vehicle.model}
-                            </div>
-                            <div className="text-[11px] text-slate-500 dark:text-[#958ea0]">
-                              {fuelLabel}
-                              {vehicle.manufacturingYear
-                                ? ` · ${vehicle.manufacturingYear}`
-                                : ""}
+                          <td className="px-4 py-3 align-middle max-w-[220px]">
+                            <div className="min-w-0">
+                              <div className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">
+                                {vehicle.make} {vehicle.model}
+                              </div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                {fuelLabel}
+                                {vehicle.manufacturingYear
+                                  ? ` · ${vehicle.manufacturingYear}`
+                                  : ""}
+                              </div>
                             </div>
                           </td>
 
                           {/* CAPACITY / TYPE / OWNERSHIP */}
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <div className="font-medium text-slate-900 dark:text-[#e3e2e3]">
-                              {vehicle.seatingCapacity} Seats · {typeLabel}
-                            </div>
-                            <div className="text-[11px] text-slate-500 dark:text-[#958ea0]">
-                              <span className="inline-block">
-                                {ownershipLabel}
-                              </span>
-                              {(vehicle.ownershipType === "attached" ||
-                                vehicle.ownershipType === "leased") &&
-                                vehicle.ownerName && (
-                                  <span className="ml-1 truncate max-w-[120px]">
-                                    ({vehicle.ownerName})
-                                  </span>
-                                )}
+                          <td className="px-4 py-3 align-middle whitespace-nowrap">
+                            <div className="min-w-0 text-xs">
+                              <div className="font-semibold text-slate-900 dark:text-slate-200">
+                                {vehicle.seatingCapacity} Seats · {typeLabel}
+                              </div>
+                              <div className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
+                                <span>{ownershipLabel}</span>
+                                {(vehicle.ownershipType === "attached" ||
+                                  vehicle.ownershipType === "leased") &&
+                                  vehicle.ownerName && (
+                                    <span className="ml-1 truncate max-w-[130px]">
+                                      ({vehicle.ownerName})
+                                    </span>
+                                  )}
+                              </div>
                             </div>
                           </td>
 
                           {/* STATUS / ACTIVITY */}
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <div className="flex items-center gap-1.5 font-medium">
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                  vehicle.isActive !== false
-                                    ? "bg-emerald-500"
-                                    : "bg-slate-400 dark:bg-slate-600"
-                                }`}
-                              />
-                              <span
-                                className={
-                                  vehicle.isActive !== false
-                                    ? "text-emerald-700 dark:text-emerald-400"
-                                    : "text-slate-500 dark:text-slate-400"
-                                }
-                              >
-                                {vehicle.isActive !== false
-                                  ? "Active"
-                                  : "Inactive"}
-                              </span>
-                            </div>
+                          <td className="px-4 py-3 align-middle whitespace-nowrap">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                    vehicle.isActive !== false
+                                      ? "bg-emerald-500"
+                                      : "bg-slate-400 dark:bg-slate-600"
+                                  }`}
+                                />
+                                <span
+                                  className={
+                                    vehicle.isActive !== false
+                                      ? "text-emerald-700 dark:text-emerald-400 text-xs font-semibold"
+                                      : "text-slate-500 dark:text-slate-400 text-xs font-medium"
+                                  }
+                                >
+                                  {vehicle.isActive !== false
+                                    ? "Active"
+                                    : "Inactive"}
+                                </span>
+                              </div>
 
-                            {/* Operational Activity subtext */}
-                            <div className="text-[11px] mt-0.5">
-                              {operational.operationalStatus ===
-                                "available" && (
-                                <span className="text-emerald-600 dark:text-emerald-400/90 font-medium">
-                                  Available
-                                </span>
-                              )}
-                              {operational.operationalStatus === "on_trip" && (
-                                <span className="text-purple-600 dark:text-purple-400 font-medium">
-                                  On Trip ({operational.subtext})
-                                </span>
-                              )}
-                              {operational.operationalStatus ===
-                                "maintenance" && (
-                                <span className="text-slate-500 dark:text-[#958ea0]">
-                                  Maintenance
-                                </span>
-                              )}
+                              {/* Operational subtext */}
+                              <div className="text-[11px]">
+                                {operational.operationalStatus ===
+                                  "available" && (
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                    Available
+                                  </span>
+                                )}
+                                {operational.operationalStatus ===
+                                  "on_trip" && (
+                                  <span className="text-purple-600 dark:text-purple-400 font-medium">
+                                    On Trip ({operational.subtext})
+                                  </span>
+                                )}
+                                {operational.operationalStatus ===
+                                  "maintenance" && (
+                                  <span className="text-slate-500 dark:text-slate-400">
+                                    Maintenance
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
 
                           {/* COMPLIANCE */}
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          <td className="px-4 py-3 align-middle whitespace-nowrap">
                             {docStatus.value === "valid" ? (
-                              <span className="inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
                                 Healthy
                               </span>
                             ) : docStatus.value === "expiring_soon" ? (
                               <div className="flex flex-col items-start">
-                                <span className="inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
                                   Expiring Soon
                                 </span>
                                 {criticalDoc && (
@@ -1331,7 +1401,7 @@ export default function VehicleList() {
                               </div>
                             ) : (
                               <div className="flex flex-col items-start">
-                                <span className="inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+                                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
                                   Expired
                                 </span>
                                 {criticalDoc && (
@@ -1346,18 +1416,20 @@ export default function VehicleList() {
                           </td>
 
                           {/* ACTIONS */}
-                          <td className="py-3 px-4 whitespace-nowrap text-right">
-                            <div className="inline-flex items-center justify-end gap-1">
-                              {/* Quick View Button */}
+                          <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
+                            <div className="inline-flex items-center justify-end gap-1.5">
+                              {/* View Button */}
                               <button
                                 type="button"
                                 title="View Details"
+                                aria-label="View Details"
                                 onClick={() => setSelectedVehicle(vehicle)}
-                                className="p-1.5 rounded-md text-slate-500 dark:text-[#958ea0] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1f2021] transition-colors cursor-pointer"
+                                className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] hover:bg-slate-50 dark:hover:bg-[#1f2230] text-slate-700 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
                               >
-                                <span className="material-symbols-outlined text-[18px]">
+                                <span className="material-symbols-outlined text-[16px] text-slate-500 dark:text-slate-400">
                                   visibility
                                 </span>
+                                <span>View</span>
                               </button>
 
                               {/* Dropdown Menu */}
@@ -1366,8 +1438,10 @@ export default function VehicleList() {
                                 trigger={
                                   <button
                                     type="button"
-                                    title="More Actions"
-                                    className="p-1.5 rounded-md text-slate-500 dark:text-[#958ea0] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1f2021] transition-colors cursor-pointer"
+                                    title="Vehicle actions"
+                                    aria-label="Vehicle actions"
+                                    data-testid={`vehicle-actions-btn-${vehicle.id}`}
+                                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] hover:bg-slate-50 dark:hover:bg-[#1f2230] text-slate-600 dark:text-slate-300 flex items-center justify-center shadow-2xs transition-colors cursor-pointer"
                                   >
                                     <span className="material-symbols-outlined text-[18px]">
                                       more_vert
@@ -1414,24 +1488,20 @@ export default function VehicleList() {
                 </table>
               </div>
 
-              {/* Pagination bar */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-[#27272a] bg-slate-50/50 dark:bg-[#141517]">
-                  <span className="text-xs text-slate-500 dark:text-[#958ea0]">
-                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{" "}
-                    {Math.min(
-                      currentPage * ITEMS_PER_PAGE,
-                      filteredVehicles.length,
-                    )}{" "}
-                    of {filteredVehicles.length} vehicles
-                  </span>
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                  />
+              {/* Table Footer with Summary and Pagination */}
+              <div className="border-t border-slate-200 dark:border-[#262837] px-4 py-3.5 bg-slate-50/50 dark:bg-[#13151f] flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="text-xs text-slate-500 dark:text-slate-400 select-none">
+                  Showing {filteredVehicles.length === 0 ? 0 : startIndex + 1}{" "}
+                  to {endIndex} of {filteredVehicles.length} vehicles
                 </div>
-              )}
+
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={(page) => setCurrentPage(page)}
+                  compact={true}
+                />
+              </div>
             </div>
           </div>
         </>

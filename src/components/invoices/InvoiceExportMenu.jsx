@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   exportInvoiceToPdf,
   exportInvoiceToExcel,
@@ -19,30 +20,80 @@ export default function InvoiceExportMenu({
   const [effectiveDirection, setEffectiveDirection] = useState(
     direction === "up" ? "up" : "down",
   );
+  const [coords, setCoords] = useState({ top: 0, left: 0, openUp: false });
   const [loadingFormat, setLoadingFormat] = useState(null); // 'pdf' | 'excel' | 'csv' | null
   const [notification, setNotification] = useState(null); // { type: 'success' | 'error', message: string }
   const menuRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
-    if (isOpen) {
-      if (direction === "up" || direction === "down") {
-        setEffectiveDirection(direction);
-      } else if (menuRef.current) {
-        const rect = menuRef.current.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        // If less than 240px below the button, open upwards
-        if (spaceBelow < 240) {
-          setEffectiveDirection("up");
-        } else {
-          setEffectiveDirection("down");
-        }
+    if (!isOpen) return;
+
+    const updatePosition = () => {
+      if (!menuRef.current) return;
+
+      const rect = menuRef.current.getBoundingClientRect();
+      const menuWidth = 240;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      const openUp =
+        direction === "up"
+          ? true
+          : direction === "down"
+            ? false
+            : spaceBelow < 240 && spaceAbove > spaceBelow;
+
+      setEffectiveDirection(openUp ? "up" : "down");
+
+      let calculatedLeft;
+
+      if (align === "left") {
+        calculatedLeft = rect.left;
+      } else {
+        calculatedLeft = rect.right - menuWidth;
       }
-    }
-  }, [isOpen, direction]);
+
+      if (typeof window !== "undefined" && window.innerWidth > 0) {
+        calculatedLeft = Math.max(
+          8,
+          Math.min(window.innerWidth - menuWidth - 8, calculatedLeft),
+        );
+      }
+
+      let calculatedTop;
+
+      if (openUp) {
+        calculatedTop = Math.max(8, rect.top - 6);
+      } else {
+        calculatedTop = rect.bottom + 6;
+      }
+
+      setCoords({
+        top: calculatedTop,
+        left: calculatedLeft,
+        openUp,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen, direction, align]);
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
         setIsOpen(false);
       }
     }
@@ -107,6 +158,110 @@ export default function InvoiceExportMenu({
 
   const isExecuting = Boolean(loadingFormat);
 
+  const dropdownMenu = isOpen && (
+    <div
+      ref={dropdownRef}
+      role="menu"
+      aria-orientation="vertical"
+      style={{
+        position: "fixed",
+        top: coords.openUp ? undefined : `${coords.top}px`,
+        bottom: coords.openUp
+          ? `${typeof window !== "undefined" ? window.innerHeight - coords.top : 0}px`
+          : undefined,
+        left: `${coords.left}px`,
+        zIndex: 9999,
+      }}
+      onClick={(e) => e.stopPropagation()}
+      className={[
+        "w-60 rounded-lg border shadow-2xl py-1 backdrop-blur-sm transition-all animate-in fade-in-0 zoom-in-95",
+        effectiveDirection === "up"
+          ? "bottom-full origin-bottom"
+          : "origin-top",
+        "bg-white dark:bg-[#18191b] border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-100",
+      ].join(" ")}
+    >
+      <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500 border-b border-slate-100 dark:border-zinc-800">
+        Select Export Format
+      </div>
+
+      {/* 1. PDF Option */}
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => handleExport("pdf")}
+        className="w-full flex items-start gap-2.5 px-3 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-zinc-800/80 cursor-pointer transition-colors group"
+      >
+        <div className="p-1 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 group-hover:scale-105 transition-transform mt-0.5">
+          <span className="material-symbols-outlined text-[16px] block">
+            picture_as_pdf
+          </span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-slate-900 dark:text-zinc-100 flex items-center justify-between">
+            <span>PDF Document</span>
+            <span className="text-[10px] font-mono font-normal text-slate-400 dark:text-zinc-500">
+              .pdf
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-snug">
+            Customer-facing tax invoice with GST breakdown & branding
+          </p>
+        </div>
+      </button>
+
+      {/* 2. Excel Option */}
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => handleExport("excel")}
+        className="w-full flex items-start gap-2.5 px-3 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-zinc-800/80 cursor-pointer transition-colors group"
+      >
+        <div className="p-1 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform mt-0.5">
+          <span className="material-symbols-outlined text-[16px] block">
+            table_view
+          </span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-slate-900 dark:text-zinc-100 flex items-center justify-between">
+            <span>Excel Workbook</span>
+            <span className="text-[10px] font-mono font-normal text-slate-400 dark:text-zinc-500">
+              .xlsx
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-snug">
+            Multi-sheet workbook: Summary, Line Items, Payments & Trips
+          </p>
+        </div>
+      </button>
+
+      {/* 3. CSV Option */}
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => handleExport("csv")}
+        className="w-full flex items-start gap-2.5 px-3 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-zinc-800/80 cursor-pointer transition-colors group"
+      >
+        <div className="p-1 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-transform mt-0.5">
+          <span className="material-symbols-outlined text-[16px] block">
+            csv
+          </span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-slate-900 dark:text-zinc-100 flex items-center justify-between">
+            <span>CSV Spreadsheet</span>
+            <span className="text-[10px] font-mono font-normal text-slate-400 dark:text-zinc-500">
+              .csv
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-snug">
+            Flat relational tabular data for ERP import & analytics
+          </p>
+        </div>
+      </button>
+    </div>
+  );
+
   return (
     <div
       ref={menuRef}
@@ -153,100 +308,10 @@ export default function InvoiceExportMenu({
         </span>
       </button>
 
-      {/* Format Selection Dropdown Popover */}
-      {isOpen && (
-        <div
-          role="menu"
-          aria-orientation="vertical"
-          className={[
-            "absolute z-50 w-60 rounded-lg border shadow-xl py-1 backdrop-blur-sm transition-all animate-in fade-in-0 zoom-in-95",
-            effectiveDirection === "up"
-              ? "bottom-full mb-1.5 origin-bottom"
-              : "top-full mt-1.5 origin-top",
-            "bg-white dark:bg-[#18191b] border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-100",
-            align === "right" ? "right-0" : "left-0",
-          ].join(" ")}
-        >
-          <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500 border-b border-slate-100 dark:border-zinc-800">
-            Select Export Format
-          </div>
-
-          {/* 1. PDF Option */}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => handleExport("pdf")}
-            className="w-full flex items-start gap-2.5 px-3 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-zinc-800/80 cursor-pointer transition-colors group"
-          >
-            <div className="p-1 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 group-hover:scale-105 transition-transform mt-0.5">
-              <span className="material-symbols-outlined text-[16px] block">
-                picture_as_pdf
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-slate-900 dark:text-zinc-100 flex items-center justify-between">
-                <span>PDF Document</span>
-                <span className="text-[10px] font-mono font-normal text-slate-400 dark:text-zinc-500">
-                  .pdf
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-snug">
-                Customer-facing tax invoice with GST breakdown & branding
-              </p>
-            </div>
-          </button>
-
-          {/* 2. Excel Option */}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => handleExport("excel")}
-            className="w-full flex items-start gap-2.5 px-3 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-zinc-800/80 cursor-pointer transition-colors group"
-          >
-            <div className="p-1 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform mt-0.5">
-              <span className="material-symbols-outlined text-[16px] block">
-                table_view
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-slate-900 dark:text-zinc-100 flex items-center justify-between">
-                <span>Excel Workbook</span>
-                <span className="text-[10px] font-mono font-normal text-slate-400 dark:text-zinc-500">
-                  .xlsx
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-snug">
-                Multi-sheet workbook: Summary, Line Items, Payments & Trips
-              </p>
-            </div>
-          </button>
-
-          {/* 3. CSV Option */}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => handleExport("csv")}
-            className="w-full flex items-start gap-2.5 px-3 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-zinc-800/80 cursor-pointer transition-colors group"
-          >
-            <div className="p-1 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-transform mt-0.5">
-              <span className="material-symbols-outlined text-[16px] block">
-                csv
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-slate-900 dark:text-zinc-100 flex items-center justify-between">
-                <span>CSV Spreadsheet</span>
-                <span className="text-[10px] font-mono font-normal text-slate-400 dark:text-zinc-500">
-                  .csv
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-snug">
-                Flat relational tabular data for ERP import & analytics
-              </p>
-            </div>
-          </button>
-        </div>
-      )}
+      {/* Format Selection Dropdown Popover (rendered in body portal to avoid layout clipping) */}
+      {typeof document !== "undefined" && dropdownMenu
+        ? createPortal(dropdownMenu, document.body)
+        : dropdownMenu}
 
       {/* Floating inline feedback toast notification */}
       {notification && (
