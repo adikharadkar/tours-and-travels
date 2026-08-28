@@ -34,6 +34,8 @@ function StatusBadge({ value, label, title }) {
 
 export default function DriverCard({
   driver,
+  activeTrip,
+  vehicle,
   onView,
   onEdit,
   onDelete,
@@ -55,8 +57,18 @@ export default function DriverCard({
   const licenseTypeLabel =
     LICENSE_TYPE_LABELS[driver.licenseType] || driver.licenseType || "License";
 
+  // Calculate Operational State
+  const isGrounded =
+    driver.isActive === false || licenseStatus.value === "expired";
+  const isOnTrip = Boolean(activeTrip);
+
   return (
-    <Card className={highlighted ? "ring-2 ring-primary/40 shadow-sm" : ""}>
+    <Card
+      className={[
+        "overflow-hidden transition-all duration-200",
+        highlighted ? "ring-2 ring-primary/40 shadow-sm" : "",
+      ].join(" ")}
+    >
       <CardContent className="p-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
@@ -74,11 +86,55 @@ export default function DriverCard({
             </p>
           </div>
 
-          <StatusBadge value={driverStatus.value} label={driverStatus.label} />
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <StatusBadge
+              value={driverStatus.value}
+              label={driverStatus.label}
+            />
+            {isOnTrip ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/60 dark:text-violet-300 dark:border-violet-800/40">
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-600 animate-pulse" />
+                On Trip
+              </span>
+            ) : isGrounded ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/40">
+                Grounded
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-800/40">
+                Available
+              </span>
+            )}
+          </div>
         </div>
 
+        {/* Current Trip / Assignment Banner if on trip */}
+        {isOnTrip && (
+          <div className="mt-3 rounded-lg border border-violet-200 dark:border-violet-900/50 bg-violet-50/50 dark:bg-violet-950/20 p-2.5 text-xs">
+            <div className="flex items-center justify-between font-mono font-bold text-violet-900 dark:text-violet-200">
+              <span>{activeTrip.tripCode}</span>
+              <span className="font-sans font-medium text-[11px] text-violet-700 dark:text-violet-300">
+                {vehicle?.vehicleNumber ||
+                  activeTrip.vehicleNumber ||
+                  "Assigned Vehicle"}
+              </span>
+            </div>
+            {(activeTrip.pickupLocation || activeTrip.dropLocation) && (
+              <div className="mt-1 flex items-center gap-1 text-[11px] text-violet-700/80 dark:text-violet-300/80 truncate">
+                <span className="truncate">
+                  {activeTrip.pickupLocation || "Origin"}
+                </span>
+                <span>→</span>
+                <span className="truncate">
+                  {activeTrip.dropLocation || "Destination"}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Details Grid */}
-        <div className="mt-4 space-y-2 text-xs">
+        <div className="mt-3.5 space-y-2 text-xs">
           <div className="flex items-center justify-between gap-2">
             <span className="text-muted">Mobile</span>
             <span className="font-medium font-mono text-foreground">
