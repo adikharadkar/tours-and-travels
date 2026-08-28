@@ -1636,6 +1636,7 @@ export default function TripList() {
           customer={customerMap.get(selectedTrip.customerId)}
           vehicle={vehicleMap.get(selectedTrip.vehicleId)}
           driver={driverMap.get(selectedTrip.driverId)}
+          invoice={getTripInvoice(selectedTrip)}
           onEdit={(t) => navigate(`/trips/${t.id}/edit`)}
           onConfirm={(t) => handleConfirm(t)}
           onStart={(t) => {
@@ -1661,6 +1662,10 @@ export default function TripList() {
           onCreateInvoice={(t) => {
             setSelectedTrip(null);
             navigate(`/invoices/generate?tripId=${t.id}`);
+          }}
+          onViewInvoice={() => {
+            setSelectedTrip(null);
+            navigate("/invoices");
           }}
         />
       )}
