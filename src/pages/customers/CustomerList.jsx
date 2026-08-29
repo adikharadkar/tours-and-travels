@@ -3,102 +3,17 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 import Button from "../../components/ui/Button";
 import Card, { CardContent } from "../../components/ui/Card";
-import FilterDropdown from "../../components/ui/FilterDropdown";
-import Checkbox from "../../components/ui/Checkbox";
 import Pagination from "../../components/ui/Pagination";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Toast from "../../components/ui/Toast";
+import CustomerToolbar from "../../components/customer/CustomerToolbar";
+import CustomerTable from "../../components/customer/CustomerTable";
 import CustomerCard from "./CustomerCard";
 import CustomerDetailsModal from "../../components/customer/CustomerDetailsModal";
 import { getCustomers, deleteCustomer } from "../../services/customerService";
-import {
-  CUSTOMER_TYPE_OPTIONS,
-  PAYMENT_STATUS_OPTIONS,
-} from "../../constants/customers";
-import {
-  formatFinancialAmount,
-  getAvatarColor,
-  getCustomerInitials,
-} from "../../utils/customers/helper";
+import { PAYMENT_STATUS_OPTIONS } from "../../constants/customers";
 
 const ITEMS_PER_PAGE = 8;
-
-function CustomerTypeBadge({ type }) {
-  const normalized = String(type || "").toLowerCase();
-
-  if (normalized === "individual") {
-    return (
-      <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-300 px-2.5 py-0.5 text-xs font-semibold tracking-wide select-none">
-        Individual
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex items-center rounded-md border border-indigo-300 bg-indigo-50 text-indigo-800 dark:border-indigo-500/40 dark:bg-indigo-950/40 dark:text-indigo-300 px-2.5 py-0.5 text-xs font-semibold tracking-wide select-none">
-      Company
-    </span>
-  );
-}
-
-function FinancialStatusCell({ customer }) {
-  const status =
-    customer.financialStatus ||
-    (Number(customer.outstandingAmount || customer.openingBalance || 0) > 20000
-      ? "critical"
-      : Number(customer.outstandingAmount || customer.openingBalance || 0) > 0
-        ? "warning"
-        : "healthy");
-
-  const amount = Number(
-    customer.outstandingAmount !== undefined
-      ? customer.outstandingAmount
-      : customer.openingBalance || 0,
-  );
-
-  const formattedAmount = formatFinancialAmount(amount);
-
-  let barColor = "bg-emerald-500";
-  let amountClass = "text-emerald-600 dark:text-emerald-400";
-  let iconName = "check_circle";
-  let defaultSubtext = "Net 30 (Current)";
-  let subtextClass = "text-slate-500 dark:text-slate-400";
-
-  if (status === "warning" || status === "overdue") {
-    barColor = "bg-amber-500";
-    amountClass = "text-amber-600 dark:text-amber-400";
-    iconName = "warning";
-    defaultSubtext = "14 Days Overdue";
-    subtextClass = "text-amber-600 dark:text-amber-400/90 font-medium";
-  } else if (status === "critical" || status === "collections") {
-    barColor = "bg-rose-500";
-    amountClass = "text-rose-600 dark:text-rose-400";
-    iconName = "info";
-    defaultSubtext = "Collections - Hold";
-    subtextClass = "text-rose-600 dark:text-rose-400/90 font-medium";
-  }
-
-  const subtext = customer.paymentStatus || defaultSubtext;
-
-  return (
-    <div className="flex items-center gap-2.5">
-      <div className={`w-1 h-9 rounded-full shrink-0 ${barColor}`} />
-      <div className="flex flex-col">
-        <div
-          className={`text-sm font-bold tracking-tight flex items-center gap-1.5 ${amountClass}`}
-        >
-          <span>{formattedAmount}</span>
-          <span className="material-symbols-outlined text-[15px] select-none">
-            {iconName}
-          </span>
-        </div>
-        <span className={`text-[11px] truncate max-w-[150px] ${subtextClass}`}>
-          {subtext}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 export default function CustomerList() {
   const navigate = useNavigate();
@@ -111,6 +26,10 @@ export default function CustomerList() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [financialStatusFilter, setFinancialStatusFilter] = useState("all");
+  const [sortField, setSortField] = useState("name");
+  const [sortDirection, setSortDirection] = useState("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
   const [loadError, setLoadError] = useState("");
@@ -155,54 +74,59 @@ export default function CustomerList() {
     }
   }, [location.state]);
 
+  // Tab counts
+  const tabCounts = useMemo(() => {
+    let company = 0;
+    let individual = 0;
+    customers.forEach((c) => {
+      const t = String(c.customerType || "").toLowerCase();
+      if (t === "individual") individual++;
+      else company++;
+    });
+    return {
+      all: customers.length,
+      company,
+      individual,
+    };
+  }, [customers]);
+
   // Dynamic State / Region filter options from loaded customers
-  const stateOptions = useMemo(() => {
+  const availableStates = useMemo(() => {
     const stateSet = new Set();
     customers.forEach((c) => {
       const s = c.state || c.billingState;
       if (s && typeof s === "string") stateSet.add(s.trim());
     });
-
-    const statesList = Array.from(stateSet).sort();
-    return [
-      { label: "All States / Regions", value: "all" },
-      ...statesList.map((s) => ({ label: s, value: s })),
-    ];
+    return Array.from(stateSet).sort();
   }, [customers]);
 
-  // Reset pagination on filter change
-  const handleTypeFilterChange = (val) => {
-    setTypeFilter(val);
-    setCurrentPage(1);
-  };
+  // Active filter count
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (paymentStatusFilter !== "all") count++;
+    if (stateFilter !== "all") count++;
+    if (statusFilter !== "all") count++;
+    if (financialStatusFilter !== "all") count++;
+    return count;
+  }, [paymentStatusFilter, stateFilter, statusFilter, financialStatusFilter]);
 
-  const handlePaymentStatusFilterChange = (val) => {
-    setPaymentStatusFilter(val);
-    setCurrentPage(1);
-  };
-
-  const handleStateFilterChange = (val) => {
-    setStateFilter(val);
-    setCurrentPage(1);
-  };
-
-  const handleSearchChange = (val) => {
-    setSearch(val);
-    setCurrentPage(1);
-  };
-
-  const hasActiveFilters =
-    search.trim() !== "" ||
-    typeFilter !== "all" ||
-    paymentStatusFilter !== "all" ||
-    stateFilter !== "all";
-
-  const handleClearFilters = () => {
+  const handleResetFilters = () => {
     setSearch("");
     setTypeFilter("all");
     setPaymentStatusFilter("all");
     setStateFilter("all");
+    setStatusFilter("all");
+    setFinancialStatusFilter("all");
     setCurrentPage(1);
+  };
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
   };
 
   // Filtered customer set
@@ -247,7 +171,7 @@ export default function CustomerList() {
         }
       }
 
-      // 2. Customer Type Filter
+      // 2. Customer Type Tab / Filter
       if (typeFilter !== "all") {
         const cType = String(customer.customerType || "").toLowerCase();
         if (typeFilter === "individual") {
@@ -289,21 +213,77 @@ export default function CustomerList() {
         }
       }
 
+      // 5. Account Status Filter (active / inactive)
+      if (statusFilter !== "all") {
+        if (statusFilter === "active" && customer.isActive === false)
+          return false;
+        if (statusFilter === "inactive" && customer.isActive !== false)
+          return false;
+      }
+
+      // 6. Financial Status Filter
+      if (financialStatusFilter !== "all") {
+        const status =
+          customer.financialStatus ||
+          (Number(customer.outstandingAmount || customer.openingBalance || 0) >
+          20000
+            ? "critical"
+            : Number(
+                  customer.outstandingAmount || customer.openingBalance || 0,
+                ) > 0
+              ? "warning"
+              : "healthy");
+        if (financialStatusFilter === "healthy" && status !== "healthy")
+          return false;
+        if (financialStatusFilter === "warning" && status !== "warning")
+          return false;
+        if (financialStatusFilter === "critical" && status !== "critical")
+          return false;
+      }
+
       return true;
     });
-  }, [customers, search, typeFilter, paymentStatusFilter, stateFilter]);
+  }, [
+    customers,
+    search,
+    typeFilter,
+    paymentStatusFilter,
+    stateFilter,
+    statusFilter,
+    financialStatusFilter,
+  ]);
+
+  // Sorted customer set
+  const sortedCustomers = useMemo(() => {
+    return [...filteredCustomers].sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+
+      if (sortField === "name") {
+        aVal = (a.name || "").toLowerCase();
+        bVal = (b.name || "").toLowerCase();
+      } else if (sortField === "outstandingAmount") {
+        aVal = Number(a.outstandingAmount || 0);
+        bVal = Number(b.outstandingAmount || 0);
+      }
+
+      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredCustomers, sortField, sortDirection]);
 
   // Paginated records
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE),
+    Math.ceil(sortedCustomers.length / ITEMS_PER_PAGE),
   );
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = Math.min(
     startIndex + ITEMS_PER_PAGE,
-    filteredCustomers.length,
+    sortedCustomers.length,
   );
-  const paginatedCustomers = filteredCustomers.slice(startIndex, endIndex);
+  const paginatedCustomers = sortedCustomers.slice(startIndex, endIndex);
 
   // Selection handlers
   const isAllPageSelected =
@@ -395,80 +375,44 @@ export default function CustomerList() {
         </button>
       </div>
 
-      {/* Filter Bar */}
-      <div className="rounded-xl border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] p-3 sm:px-4 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Left: Filter Label & Dropdowns */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-slate-400 dark:text-slate-400 uppercase select-none mr-1">
-              <span className="material-symbols-outlined text-[18px]">
-                filter_list
-              </span>
-              <span>FILTERS</span>
-            </div>
-
-            {/* Customer Type Dropdown */}
-            <FilterDropdown
-              label="Customer Type"
-              value={typeFilter}
-              options={CUSTOMER_TYPE_OPTIONS}
-              onChange={handleTypeFilterChange}
-            />
-
-            {/* Payment Status Dropdown */}
-            <FilterDropdown
-              label="Payment Status"
-              value={paymentStatusFilter}
-              options={PAYMENT_STATUS_OPTIONS}
-              onChange={handlePaymentStatusFilterChange}
-            />
-
-            {/* State / Region Dropdown */}
-            <FilterDropdown
-              label="State / Region"
-              value={stateFilter}
-              options={stateOptions}
-              onChange={handleStateFilterChange}
-            />
-          </div>
-
-          {/* Right: Search Input & Clear All */}
-          <div className="flex items-center gap-2.5 ml-auto w-full sm:w-auto justify-between sm:justify-end">
-            <div className="relative flex items-center flex-1 sm:w-64 max-w-xs">
-              <span className="material-symbols-outlined absolute left-2.5 text-[18px] text-slate-400 dark:text-slate-500 select-none pointer-events-none">
-                search
-              </span>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search customers, ID, GSTIN..."
-                className="w-full pl-8 pr-7 py-1.5 rounded-lg text-xs bg-slate-50 dark:bg-[#191b26] text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-[#262837] placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => handleSearchChange("")}
-                  className="absolute right-2 text-slate-400 hover:text-slate-200 text-xs cursor-pointer p-0.5"
-                  aria-label="Clear search query"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors cursor-pointer select-none whitespace-nowrap shrink-0"
-              >
-                Clear All
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Toolbar */}
+      <CustomerToolbar
+        activeTab={typeFilter}
+        onTabChange={(tab) => {
+          setTypeFilter(tab);
+          setCurrentPage(1);
+        }}
+        tabCounts={tabCounts}
+        searchQuery={search}
+        onSearchChange={(q) => {
+          setSearch(q);
+          setCurrentPage(1);
+        }}
+        paymentStatus={paymentStatusFilter}
+        onPaymentStatusChange={(s) => {
+          setPaymentStatusFilter(s);
+          setCurrentPage(1);
+        }}
+        paymentStatusOptions={PAYMENT_STATUS_OPTIONS}
+        stateFilter={stateFilter}
+        onStateFilterChange={(s) => {
+          setStateFilter(s);
+          setCurrentPage(1);
+        }}
+        availableStates={availableStates}
+        statusFilter={statusFilter}
+        onStatusFilterChange={(s) => {
+          setStatusFilter(s);
+          setCurrentPage(1);
+        }}
+        financialStatusFilter={financialStatusFilter}
+        onFinancialStatusFilterChange={(f) => {
+          setFinancialStatusFilter(f);
+          setCurrentPage(1);
+        }}
+        onResetFilters={handleResetFilters}
+        activeFilterCount={activeFilterCount}
+      />
 
       {/* Main Content Area */}
       {loadError ? (
@@ -499,7 +443,7 @@ export default function CustomerList() {
             </Button>
           </CardContent>
         </Card>
-      ) : filteredCustomers.length === 0 ? (
+      ) : sortedCustomers.length === 0 ? (
         <Card className="py-12 text-center border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822]">
           <CardContent className="space-y-3">
             <h3 className="text-base font-semibold text-foreground">
@@ -508,7 +452,7 @@ export default function CustomerList() {
             <p className="text-sm text-muted">
               No customers matched your selected filter criteria.
             </p>
-            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+            <Button type="button" variant="ghost" onClick={handleResetFilters}>
               Reset Filters
             </Button>
           </CardContent>
@@ -529,245 +473,36 @@ export default function CustomerList() {
             ))}
           </div>
 
-          {/* Desktop View: High-Density Enterprise Table (>= md) */}
+          {/* Desktop View: Shared Table Design (>= md) */}
           <div className="hidden md:block">
-            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] shadow-xs">
-              <div className="w-full overflow-x-auto">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-[#262837] bg-slate-50/70 dark:bg-[#13151f]">
-                      <th scope="col" className="w-10 px-4 py-3 text-left">
-                        <Checkbox
-                          checked={isAllPageSelected}
-                          onChange={handleToggleSelectAll}
-                          aria-label="Select all customers on this page"
-                        />
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
-                      >
-                        CUSTOMER
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
-                      >
-                        TYPE
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
-                      >
-                        CONTACT
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
-                      >
-                        GSTIN
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
-                      >
-                        LOCATION
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
-                      >
-                        FINANCIAL STATUS
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
-                      >
-                        ACTIONS
-                      </th>
-                    </tr>
-                  </thead>
+            <CustomerTable
+              customers={paginatedCustomers}
+              selectedCustomerIds={selectedIds}
+              onToggleSelectCustomer={handleToggleSelectRow}
+              onToggleSelectAll={handleToggleSelectAll}
+              isAllSelected={isAllPageSelected}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+              onViewCustomer={(c) => setSelectedCustomer(c)}
+              onEditCustomer={(c) => handleEdit(c)}
+              onDeleteCustomer={(c) => setCustomerToDelete(c)}
+              highlightedCustomerId={highlightedCustomerId}
+            />
 
-                  <tbody className="divide-y divide-slate-100 dark:divide-[#202330]">
-                    {paginatedCustomers.map((customer, idx) => {
-                      const isSelected = selectedIds.includes(customer.id);
-                      const isHighlighted =
-                        customer.id === highlightedCustomerId;
-
-                      return (
-                        <tr
-                          key={
-                            customer.id ||
-                            customer.customerCode ||
-                            `cust_row_${idx}`
-                          }
-                          className={[
-                            "transition-colors duration-150",
-                            isHighlighted
-                              ? "bg-cyan-500/10 dark:bg-cyan-950/40 ring-1 ring-inset ring-cyan-400/40"
-                              : isSelected
-                                ? "bg-slate-100/70 dark:bg-[#1a1d2b]"
-                                : "hover:bg-slate-50/80 dark:hover:bg-[#1a1c28]",
-                          ].join(" ")}
-                        >
-                          {/* 0. Row Selection Checkbox */}
-                          <td className="px-4 py-3 align-middle">
-                            <Checkbox
-                              checked={isSelected}
-                              onChange={() =>
-                                handleToggleSelectRow(customer.id)
-                              }
-                              aria-label={`Select ${customer.name}`}
-                            />
-                          </td>
-
-                          {/* 1. Customer Column */}
-                          <td className="px-4 py-3 align-middle">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={[
-                                  "h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none shadow-2xs",
-                                  getAvatarColor(
-                                    customer.name,
-                                    customer.customerType,
-                                    customer.financialStatus,
-                                  ),
-                                ].join(" ")}
-                              >
-                                {getCustomerInitials(customer.name)}
-                              </div>
-
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate max-w-[190px]">
-                                    {customer.name}
-                                  </span>
-                                  {customer.isActive !== false && (
-                                    <span
-                                      className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0"
-                                      title="Active Profile"
-                                    />
-                                  )}
-                                </div>
-                                <span className="text-xs font-mono text-slate-400 dark:text-slate-400 block mt-0.5">
-                                  {customer.customerCode ||
-                                    customer.customerId ||
-                                    "—"}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* 2. Type Column */}
-                          <td className="px-4 py-3 align-middle whitespace-nowrap">
-                            <CustomerTypeBadge type={customer.customerType} />
-                          </td>
-
-                          {/* 3. Contact Column */}
-                          <td className="px-4 py-3 align-middle whitespace-nowrap">
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium text-slate-900 dark:text-slate-200 truncate max-w-[190px]">
-                                {customer.email || "—"}
-                              </div>
-                              <div className="text-xs font-mono text-slate-400 dark:text-slate-400 mt-0.5">
-                                {customer.phone || customer.mobile1 || "—"}
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* 4. GSTIN Column */}
-                          <td className="px-4 py-3 align-middle whitespace-nowrap font-mono text-xs text-slate-600 dark:text-slate-300">
-                            {customer.gstin || customer.gstNumber ? (
-                              <span>
-                                {customer.gstin || customer.gstNumber}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 dark:text-slate-500">
-                                —
-                              </span>
-                            )}
-                          </td>
-
-                          {/* 5. Location Column */}
-                          <td className="px-4 py-3 align-middle whitespace-nowrap">
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium text-slate-900 dark:text-slate-200">
-                                {customer.city || customer.billingCity || "—"}
-                              </div>
-                              <div className="text-xs text-slate-400 dark:text-slate-400 mt-0.5">
-                                {[
-                                  customer.state || customer.billingState,
-                                  customer.postalCode ||
-                                    customer.pinCode ||
-                                    customer.billingPincode,
-                                ]
-                                  .filter(Boolean)
-                                  .join(", ") || "—"}
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* 6. Financial Status Column */}
-                          <td className="px-4 py-3 align-middle whitespace-nowrap">
-                            <FinancialStatusCell customer={customer} />
-                          </td>
-
-                          {/* 7. Actions Column */}
-                          <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
-                            <div className="inline-flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                title="View Customer Details"
-                                onClick={() => setSelectedCustomer(customer)}
-                                className="h-8 w-8 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                              >
-                                <span className="material-symbols-outlined text-[18px]">
-                                  visibility
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                title="Edit Customer"
-                                onClick={() => handleEdit(customer)}
-                                className="h-8 w-8 rounded-md flex items-center justify-center text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 transition-colors cursor-pointer"
-                              >
-                                <span className="material-symbols-outlined text-[18px]">
-                                  edit
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                title="Delete Customer"
-                                onClick={() => setCustomerToDelete(customer)}
-                                className="h-8 w-8 rounded-md flex items-center justify-center text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                              >
-                                <span className="material-symbols-outlined text-[18px]">
-                                  delete
-                                </span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            {/* Table Footer with Summary and Pagination */}
+            <div className="mt-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+              <div className="select-none">
+                Showing {sortedCustomers.length === 0 ? 0 : startIndex + 1} to{" "}
+                {endIndex} of {sortedCustomers.length} customers
               </div>
 
-              {/* Table Footer with Summary and Pagination */}
-              <div className="border-t border-slate-200 dark:border-[#262837] px-4 py-3.5 bg-slate-50/50 dark:bg-[#13151f] flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="text-xs text-slate-500 dark:text-slate-400 select-none">
-                  Showing {filteredCustomers.length === 0 ? 0 : startIndex + 1}{" "}
-                  to {endIndex} of {filteredCustomers.length} customers
-                </div>
-
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={(page) => setCurrentPage(page)}
-                  compact={true}
-                />
-              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => setCurrentPage(page)}
+                compact={true}
+              />
             </div>
           </div>
         </>

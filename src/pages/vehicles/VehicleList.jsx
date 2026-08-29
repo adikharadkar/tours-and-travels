@@ -1,51 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
-import Button from "../../components/ui/Button";
 import Card, { CardContent } from "../../components/ui/Card";
-import Dropdown, {
-  DropdownItem,
-  DropdownDivider,
-} from "../../components/ui/Dropdown";
 import Pagination from "../../components/ui/Pagination";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Toast from "../../components/ui/Toast";
+import VehicleToolbar from "../../components/vehicle/VehicleToolbar";
+import VehicleTable from "../../components/vehicle/VehicleTable";
 import VehicleCard from "../../components/vehicle/VehicleCard";
 import VehicleDetailsModal from "../../components/vehicle/VehicleDetailsModal";
 import { getVehicles, deleteVehicle } from "../../services/vehicleService";
 import { getTrips } from "../../services/tripService";
 import { getVehicleDocumentStatus } from "../../utils/vehicleDocumentStatus";
 import { getVehicleOperationalState } from "../../utils/vehicleOperationalStatus";
-import {
-  VEHICLE_TYPES,
-  OWNERSHIP_TYPES,
-  VEHICLE_STATUS_OPTIONS,
-  DOCUMENT_STATUS_OPTIONS,
-  VEHICLE_TYPE_LABELS,
-  OWNERSHIP_TYPE_LABELS,
-  FUEL_TYPE_LABELS,
-} from "../../constants/vehicles";
-
-const VEHICLE_TYPE_FILTER_OPTIONS = [
-  { label: "All Vehicle Types", value: "all" },
-  ...VEHICLE_TYPES,
-];
-
-const OWNERSHIP_FILTER_OPTIONS = [
-  { label: "All Ownerships", value: "all" },
-  ...OWNERSHIP_TYPES,
-];
-
-const SORT_OPTIONS = [
-  { label: "Vehicle Number", value: "vehicleNumber" },
-  { label: "Vehicle Code", value: "vehicleCode" },
-  { label: "Vehicle Type", value: "vehicleType" },
-  { label: "Make / Model", value: "make" },
-  { label: "Seating Capacity", value: "seatingCapacity" },
-  { label: "Ownership", value: "ownershipType" },
-  { label: "Status", value: "isActive" },
-  { label: "Document Expiry", value: "documentExpiry" },
-];
+import { VEHICLE_TYPE_LABELS } from "../../constants/vehicles";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -58,7 +26,7 @@ export default function VehicleList() {
   const [vehicleToDelete, setVehicleToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [search, setSearch] = useState("");
-  const [operationalTab, setOperationalTab] = useState("all"); // 'all' | 'available' | 'on_trip' | 'maintenance'
+  const [operationalTab, setOperationalTab] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [ownershipFilter, setOwnershipFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -67,7 +35,6 @@ export default function VehicleList() {
   const [sortOrder, setSortOrder] = useState("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [showAttentionBanner, setShowAttentionBanner] = useState(true);
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   const [loadError, setLoadError] = useState("");
   const [toast, setToast] = useState(null);
@@ -105,7 +72,7 @@ export default function VehicleList() {
     }
   }, [location.state]);
 
-  // Comprehensive Fleet Metrics
+  // Fleet Statistics
   const stats = useMemo(() => {
     let activeCount = 0;
     let availableCount = 0;
@@ -149,13 +116,54 @@ export default function VehicleList() {
     };
   }, [vehicles, trips]);
 
+  // Tab counts
+  const tabCounts = useMemo(() => {
+    return {
+      all: stats.total,
+      available: stats.available,
+      on_trip: stats.onTrip,
+      maintenance: stats.maintenance,
+    };
+  }, [stats]);
+
+  // Active filter count
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (typeFilter !== "all") count++;
+    if (ownershipFilter !== "all") count++;
+    if (statusFilter !== "all") count++;
+    if (docStatusFilter !== "all") count++;
+    return count;
+  }, [typeFilter, ownershipFilter, statusFilter, docStatusFilter]);
+
+  const handleResetFilters = () => {
+    setSearch("");
+    setOperationalTab("all");
+    setTypeFilter("all");
+    setOwnershipFilter("all");
+    setStatusFilter("all");
+    setDocStatusFilter("all");
+    setSortBy("vehicleCode");
+    setSortOrder("asc");
+    setCurrentPage(1);
+  };
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
+
   // Filtered and Sorted Vehicles
   const filteredVehicles = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     return vehicles
       .filter((vehicle) => {
-        // 1. Search Query: Code, Number, Make, Model, Owner, Type
+        // 1. Search Query
         if (query) {
           const matchCode = (vehicle.vehicleCode || "")
             .toLowerCase()
@@ -283,21 +291,10 @@ export default function VehicleList() {
     sortOrder,
   ]);
 
-  // Reset pagination on filter change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    search,
-    operationalTab,
-    typeFilter,
-    ownershipFilter,
-    statusFilter,
-    docStatusFilter,
-    sortBy,
-    sortOrder,
-  ]);
-
-  const totalPages = Math.ceil(filteredVehicles.length / ITEMS_PER_PAGE);
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredVehicles.length / ITEMS_PER_PAGE),
+  );
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = Math.min(
     startIndex + ITEMS_PER_PAGE,
@@ -314,15 +311,6 @@ export default function VehicleList() {
     ownershipFilter !== "all" ||
     statusFilter !== "all" ||
     docStatusFilter !== "all";
-
-  const handleClearFilters = () => {
-    setSearch("");
-    setOperationalTab("all");
-    setTypeFilter("all");
-    setOwnershipFilter("all");
-    setStatusFilter("all");
-    setDocStatusFilter("all");
-  };
 
   const handleEdit = (vehicle) => {
     navigate(`/vehicles/${vehicle.id}/edit`);
@@ -363,7 +351,7 @@ export default function VehicleList() {
   // KPI Card click helpers
   const handleKpiClick = (type) => {
     if (type === "total") {
-      handleClearFilters();
+      handleResetFilters();
     } else if (type === "active") {
       setStatusFilter((prev) => (prev === "active" ? "all" : "active"));
       setOperationalTab("all");
@@ -396,7 +384,7 @@ export default function VehicleList() {
         />
       )}
 
-      {/* Top Header - Stitch Style */}
+      {/* Top Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-[#e3e2e3]">
@@ -455,7 +443,7 @@ export default function VehicleList() {
             "group relative flex flex-col justify-between text-left rounded-xl p-3.5 transition-all duration-200 cursor-pointer select-none",
             "border bg-white dark:bg-[#161822] shadow-xs hover:shadow-md hover:-translate-y-0.5",
             statusFilter === "active"
-              ? "border-emerald-500/80 dark:border-emerald-500 ring-2 ring-emerald-500/20 dark:ring-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-950/20"
+              ? "border-emerald-500/80 dark:border-emerald-400 ring-2 ring-emerald-500/20 dark:ring-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-950/20"
               : "border-slate-200/90 dark:border-[#262837] hover:border-slate-300 dark:hover:border-slate-600",
           ].join(" ")}
         >
@@ -467,11 +455,10 @@ export default function VehicleList() {
               check_circle
             </span>
           </div>
-          <p className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-            <span className="text-sm leading-none">•</span>
+          <p className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400">
             {stats.active}
           </p>
-          <p className="mt-1 text-[11px] text-emerald-600/90 dark:text-emerald-400/90 font-medium">
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
             Operational
           </p>
         </button>
@@ -484,7 +471,7 @@ export default function VehicleList() {
             "group relative flex flex-col justify-between text-left rounded-xl p-3.5 transition-all duration-200 cursor-pointer select-none",
             "border bg-white dark:bg-[#161822] shadow-xs hover:shadow-md hover:-translate-y-0.5",
             operationalTab === "available"
-              ? "border-cyan-500/80 dark:border-cyan-500 ring-2 ring-cyan-500/20 dark:ring-cyan-500/30 bg-cyan-50/20 dark:bg-cyan-950/20"
+              ? "border-cyan-500/80 dark:border-cyan-400 ring-2 ring-cyan-500/20 dark:ring-cyan-500/30 bg-cyan-50/20 dark:bg-cyan-950/20"
               : "border-slate-200/90 dark:border-[#262837] hover:border-slate-300 dark:hover:border-slate-600",
           ].join(" ")}
         >
@@ -499,8 +486,8 @@ export default function VehicleList() {
           <p className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-cyan-600 dark:text-cyan-400">
             {stats.available}
           </p>
-          <p className="mt-1 text-[11px] text-cyan-600/90 dark:text-cyan-400/90 font-medium">
-            Ready for trip
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            Ready to dispatch
           </p>
         </button>
 
@@ -520,15 +507,15 @@ export default function VehicleList() {
             <span className="font-mono text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
               ON TRIP
             </span>
-            <span className="material-symbols-outlined text-[17px] text-purple-600 dark:text-[#d0bcff] p-1 rounded-md bg-purple-50 dark:bg-purple-950/60">
-              commute
+            <span className="material-symbols-outlined text-[17px] text-purple-600 dark:text-purple-400 p-1 rounded-md bg-purple-50 dark:bg-purple-950/60">
+              near_me
             </span>
           </div>
-          <p className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-purple-600 dark:text-[#d0bcff]">
+          <p className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-purple-600 dark:text-purple-400">
             {stats.onTrip}
           </p>
-          <p className="mt-1 text-[11px] text-purple-600/90 dark:text-purple-400/90 font-medium">
-            In transit
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            Currently running
           </p>
         </button>
 
@@ -539,8 +526,8 @@ export default function VehicleList() {
           className={[
             "group relative flex flex-col justify-between text-left rounded-xl p-3.5 transition-all duration-200 cursor-pointer select-none",
             "border bg-white dark:bg-[#161822] shadow-xs hover:shadow-md hover:-translate-y-0.5",
-            operationalTab === "maintenance" || statusFilter === "inactive"
-              ? "border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/20 dark:ring-slate-500/30 bg-slate-50 dark:bg-slate-800/20"
+            operationalTab === "maintenance"
+              ? "border-slate-500/80 dark:border-slate-400 ring-2 ring-slate-500/20 dark:ring-slate-500/30 bg-slate-100 dark:bg-[#1a1d2b]"
               : "border-slate-200/90 dark:border-[#262837] hover:border-slate-300 dark:hover:border-slate-600",
           ].join(" ")}
         >
@@ -548,16 +535,15 @@ export default function VehicleList() {
             <span className="font-mono text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
               INACTIVE
             </span>
-            <span className="material-symbols-outlined text-[17px] text-slate-500 dark:text-slate-400 p-1 rounded-md bg-slate-100 dark:bg-[#202330]">
+            <span className="material-symbols-outlined text-[17px] text-slate-600 dark:text-slate-400 p-1 rounded-md bg-slate-100 dark:bg-[#202330]">
               build
             </span>
           </div>
-          <p className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-            <span className="text-sm leading-none">•</span>
+          <p className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-700 dark:text-slate-300">
             {stats.inactive}
           </p>
           <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-            Needs service
+            In shop / Offline
           </p>
         </button>
 
@@ -578,23 +564,23 @@ export default function VehicleList() {
               EXPIRING SOON
             </span>
             <span className="material-symbols-outlined text-[17px] text-amber-600 dark:text-amber-400 p-1 rounded-md bg-amber-50 dark:bg-amber-950/60">
-              alarm
+              history_toggle_off
             </span>
           </div>
           <p className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-amber-600 dark:text-amber-400">
             {stats.expiringSoon}
           </p>
           <p className="mt-1 text-[11px] text-amber-600/90 dark:text-amber-400/90 font-medium">
-            Within 30 days
+            Due in 30 days
           </p>
         </button>
 
-        {/* Expired Docs */}
+        {/* Expired */}
         <button
           type="button"
           onClick={() => handleKpiClick("expired")}
           className={[
-            "col-span-2 sm:col-span-1 group relative flex flex-col justify-between text-left rounded-xl p-3.5 transition-all duration-200 cursor-pointer select-none",
+            "group relative flex flex-col justify-between text-left rounded-xl p-3.5 transition-all duration-200 cursor-pointer select-none",
             "border bg-white dark:bg-[#161822] shadow-xs hover:shadow-md hover:-translate-y-0.5",
             docStatusFilter === "expired"
               ? "border-rose-500/80 dark:border-rose-400 ring-2 ring-rose-500/20 dark:ring-rose-500/30 bg-rose-50/20 dark:bg-rose-950/20"
@@ -679,481 +665,101 @@ export default function VehicleList() {
         </div>
       )}
 
-      {/* Operational Views Tab Bar & Search / Filter Controls */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border-b border-slate-200 dark:border-[#27272a] pb-3">
-        {/* Operational Tabs matching Stitch layout */}
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1">
-          <button
-            type="button"
-            onClick={() => setOperationalTab("all")}
-            className={[
-              "relative pb-2.5 px-3 text-xs sm:text-sm font-medium transition-colors cursor-pointer whitespace-nowrap",
-              operationalTab === "all"
-                ? "text-[#8b5cf6] dark:text-[#d0bcff] font-semibold"
-                : "text-slate-600 dark:text-[#cbc3d7] hover:text-slate-900 dark:hover:text-white",
-            ].join(" ")}
-          >
-            All Vehicles
-            {operationalTab === "all" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#8b5cf6] dark:bg-[#d0bcff] rounded-full" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setOperationalTab("available")}
-            className={[
-              "relative pb-2.5 px-3 text-xs sm:text-sm font-medium transition-colors cursor-pointer whitespace-nowrap",
-              operationalTab === "available"
-                ? "text-[#8b5cf6] dark:text-[#d0bcff] font-semibold"
-                : "text-slate-600 dark:text-[#cbc3d7] hover:text-slate-900 dark:hover:text-white",
-            ].join(" ")}
-          >
-            Available
-            {operationalTab === "available" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#8b5cf6] dark:bg-[#d0bcff] rounded-full" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setOperationalTab("on_trip")}
-            className={[
-              "relative pb-2.5 px-3 text-xs sm:text-sm font-medium transition-colors cursor-pointer whitespace-nowrap",
-              operationalTab === "on_trip"
-                ? "text-[#8b5cf6] dark:text-[#d0bcff] font-semibold"
-                : "text-slate-600 dark:text-[#cbc3d7] hover:text-slate-900 dark:hover:text-white",
-            ].join(" ")}
-          >
-            On Trip
-            {operationalTab === "on_trip" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#8b5cf6] dark:bg-[#d0bcff] rounded-full" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setOperationalTab("maintenance")}
-            className={[
-              "relative pb-2.5 px-3 text-xs sm:text-sm font-medium transition-colors cursor-pointer whitespace-nowrap",
-              operationalTab === "maintenance"
-                ? "text-[#8b5cf6] dark:text-[#d0bcff] font-semibold"
-                : "text-slate-600 dark:text-[#cbc3d7] hover:text-slate-900 dark:hover:text-white",
-            ].join(" ")}
-          >
-            Maintenance
-            {operationalTab === "maintenance" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#8b5cf6] dark:bg-[#d0bcff] rounded-full" />
-            )}
-          </button>
-        </div>
-
-        {/* Right Search and Filter Trigger */}
-        <div className="flex items-center gap-2">
-          {/* Search Box */}
-          <div className="relative flex-1 sm:w-72 lg:w-80">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-[18px] select-none pointer-events-none">
-              search
-            </span>
-            <input
-              type="text"
-              aria-label="Search vehicles"
-              placeholder="Search vehicles..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-9 pl-9 pr-8 rounded-lg text-xs sm:text-sm bg-slate-50 dark:bg-[#191b26] border border-slate-200 dark:border-[#262837] text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 shadow-2xs transition-all"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                aria-label="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          {/* Filter Toggle Button */}
-          <button
-            type="button"
-            onClick={() => setShowMoreFilters((prev) => !prev)}
-            className={[
-              "h-9 px-3.5 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition-all cursor-pointer select-none",
-              showMoreFilters ||
-              (hasActiveFilters && operationalTab === "all" && search === "")
-                ? "bg-cyan-50 text-cyan-800 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 shadow-xs ring-1 ring-cyan-500/20"
-                : "bg-slate-50 dark:bg-[#191b26] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
-            ].join(" ")}
-          >
-            <span className="material-symbols-outlined text-[16px]">tune</span>
-            <span>Filters</span>
-            {(typeFilter !== "all" ||
-              ownershipFilter !== "all" ||
-              statusFilter !== "all" ||
-              docStatusFilter !== "all") && (
-              <span className="w-2 h-2 rounded-full bg-cyan-500" />
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Expanded Filter Panel */}
-      {showMoreFilters && (
-        <Card className="border border-slate-200/90 dark:border-[#262837] bg-white dark:bg-[#161822] shadow-xs rounded-xl overflow-hidden">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#262837] pb-2.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">
-                Filter Fleet Records
-              </span>
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={handleClearFilters}
-                  className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-[14px]">
-                    refresh
-                  </span>
-                  <span>Reset filters</span>
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              {/* Type Filter */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 font-mono">
-                  Vehicle Type
-                </label>
-                <div className="relative">
-                  <select
-                    aria-label="Filter by vehicle type"
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className={[
-                      "w-full h-9 pl-3 pr-8 text-xs font-semibold rounded-lg border appearance-none transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
-                      typeFilter !== "all"
-                        ? "bg-cyan-50 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 ring-1 ring-cyan-500/20"
-                        : "bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-slate-200 border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
-                    ].join(" ")}
-                  >
-                    {VEHICLE_TYPE_FILTER_OPTIONS.map((opt) => (
-                      <option
-                        key={opt.value}
-                        value={opt.value}
-                        className="dark:bg-[#191b26]"
-                      >
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-400 pointer-events-none">
-                    expand_more
-                  </span>
-                </div>
-              </div>
-
-              {/* Ownership Filter */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 font-mono">
-                  Ownership
-                </label>
-                <div className="relative">
-                  <select
-                    aria-label="Filter by ownership"
-                    value={ownershipFilter}
-                    onChange={(e) => setOwnershipFilter(e.target.value)}
-                    className={[
-                      "w-full h-9 pl-3 pr-8 text-xs font-semibold rounded-lg border appearance-none transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
-                      ownershipFilter !== "all"
-                        ? "bg-cyan-50 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 ring-1 ring-cyan-500/20"
-                        : "bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-slate-200 border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
-                    ].join(" ")}
-                  >
-                    {OWNERSHIP_FILTER_OPTIONS.map((opt) => (
-                      <option
-                        key={opt.value}
-                        value={opt.value}
-                        className="dark:bg-[#191b26]"
-                      >
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-400 pointer-events-none">
-                    expand_more
-                  </span>
-                </div>
-              </div>
-
-              {/* Master Status Filter */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 font-mono">
-                  Master Status
-                </label>
-                <div className="relative">
-                  <select
-                    aria-label="Filter by status"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className={[
-                      "w-full h-9 pl-3 pr-8 text-xs font-semibold rounded-lg border appearance-none transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
-                      statusFilter !== "all"
-                        ? "bg-cyan-50 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 ring-1 ring-cyan-500/20"
-                        : "bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-slate-200 border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
-                    ].join(" ")}
-                  >
-                    {VEHICLE_STATUS_OPTIONS.map((opt) => (
-                      <option
-                        key={opt.value}
-                        value={opt.value}
-                        className="dark:bg-[#191b26]"
-                      >
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-400 pointer-events-none">
-                    expand_more
-                  </span>
-                </div>
-              </div>
-
-              {/* Document Compliance Filter */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 font-mono">
-                  Compliance
-                </label>
-                <div className="relative">
-                  <select
-                    aria-label="Filter by document status"
-                    value={docStatusFilter}
-                    onChange={(e) => setDocStatusFilter(e.target.value)}
-                    className={[
-                      "w-full h-9 pl-3 pr-8 text-xs font-semibold rounded-lg border appearance-none transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
-                      docStatusFilter !== "all"
-                        ? "bg-cyan-50 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-500/50 ring-1 ring-cyan-500/20"
-                        : "bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-slate-200 border-slate-200 dark:border-[#262837] hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs",
-                    ].join(" ")}
-                  >
-                    {DOCUMENT_STATUS_OPTIONS.map((opt) => (
-                      <option
-                        key={opt.value}
-                        value={opt.value}
-                        className="dark:bg-[#191b26]"
-                      >
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-400 pointer-events-none">
-                    expand_more
-                  </span>
-                </div>
-              </div>
-
-              {/* Sorting Selection */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 font-mono">
-                  Sort By
-                </label>
-                <div className="flex items-center gap-1.5">
-                  <div className="relative flex-1">
-                    <select
-                      aria-label="Sort by"
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                      className="w-full h-9 pl-3 pr-8 text-xs font-semibold rounded-lg border border-slate-200 dark:border-[#262837] bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 appearance-none shadow-2xs cursor-pointer"
-                    >
-                      {SORT_OPTIONS.map((opt) => (
-                        <option
-                          key={opt.value}
-                          value={opt.value}
-                          className="dark:bg-[#191b26]"
-                        >
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400 dark:text-slate-400 pointer-events-none">
-                      expand_more
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    title={
-                      sortOrder === "asc"
-                        ? "Ascending (Click for Descending)"
-                        : "Descending (Click for Ascending)"
-                    }
-                    onClick={() =>
-                      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-                    }
-                    className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border border-slate-200 dark:border-[#262837] bg-slate-50 dark:bg-[#191b26] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#202330] hover:border-slate-300 dark:hover:border-slate-600 text-xs font-semibold cursor-pointer shadow-2xs transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">
-                      {sortOrder === "asc" ? "arrow_upward" : "arrow_downward"}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Active Filter Chips bar */}
-      {hasActiveFilters && (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-[#958ea0]">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span>
-              Showing {filteredVehicles.length} of {vehicles.length} vehicles
-            </span>
-            {search && (
-              <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-[#1f2021] px-2 py-0.5 text-[11px] text-slate-800 dark:text-[#e3e2e3]">
-                Search: "{search}"
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="hover:text-rose-500"
-                >
-                  ✕
-                </button>
-              </span>
-            )}
-            {operationalTab !== "all" && (
-              <span className="inline-flex items-center gap-1 rounded bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 text-[11px] text-purple-700 dark:text-[#d0bcff]">
-                View: {operationalTab}
-                <button
-                  type="button"
-                  onClick={() => setOperationalTab("all")}
-                  className="hover:text-rose-500"
-                >
-                  ✕
-                </button>
-              </span>
-            )}
-            {typeFilter !== "all" && (
-              <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-[#1f2021] px-2 py-0.5 text-[11px] text-slate-800 dark:text-[#e3e2e3]">
-                Type: {VEHICLE_TYPE_LABELS[typeFilter] || typeFilter}
-                <button
-                  type="button"
-                  onClick={() => setTypeFilter("all")}
-                  className="hover:text-rose-500"
-                >
-                  ✕
-                </button>
-              </span>
-            )}
-            {ownershipFilter !== "all" && (
-              <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-[#1f2021] px-2 py-0.5 text-[11px] text-slate-800 dark:text-[#e3e2e3]">
-                Ownership:{" "}
-                {OWNERSHIP_TYPE_LABELS[ownershipFilter] || ownershipFilter}
-                <button
-                  type="button"
-                  onClick={() => setOwnershipFilter("all")}
-                  className="hover:text-rose-500"
-                >
-                  ✕
-                </button>
-              </span>
-            )}
-            {statusFilter !== "all" && (
-              <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-[#1f2021] px-2 py-0.5 text-[11px] text-slate-800 dark:text-[#e3e2e3]">
-                Status: {statusFilter}
-                <button
-                  type="button"
-                  onClick={() => setStatusFilter("all")}
-                  className="hover:text-rose-500"
-                >
-                  ✕
-                </button>
-              </span>
-            )}
-            {docStatusFilter !== "all" && (
-              <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-[#1f2021] px-2 py-0.5 text-[11px] text-slate-800 dark:text-[#e3e2e3]">
-                Doc: {docStatusFilter}
-                <button
-                  type="button"
-                  onClick={() => setDocStatusFilter("all")}
-                  className="hover:text-rose-500"
-                >
-                  ✕
-                </button>
-              </span>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={handleClearFilters}
-            className="font-medium text-[#8b5cf6] dark:text-[#d0bcff] hover:underline cursor-pointer"
-          >
-            Reset all filters
-          </button>
-        </div>
-      )}
+      {/* Toolbar */}
+      <VehicleToolbar
+        operationalTab={operationalTab}
+        onOperationalTabChange={(tab) => {
+          setOperationalTab(tab);
+          setCurrentPage(1);
+        }}
+        tabCounts={tabCounts}
+        searchQuery={search}
+        onSearchChange={(q) => {
+          setSearch(q);
+          setCurrentPage(1);
+        }}
+        typeFilter={typeFilter}
+        onTypeFilterChange={(t) => {
+          setTypeFilter(t);
+          setCurrentPage(1);
+        }}
+        ownershipFilter={ownershipFilter}
+        onOwnershipFilterChange={(o) => {
+          setOwnershipFilter(o);
+          setCurrentPage(1);
+        }}
+        statusFilter={statusFilter}
+        onStatusFilterChange={(s) => {
+          setStatusFilter(s);
+          setCurrentPage(1);
+        }}
+        docStatusFilter={docStatusFilter}
+        onDocStatusFilterChange={(d) => {
+          setDocStatusFilter(d);
+          setCurrentPage(1);
+        }}
+        sortBy={sortBy}
+        onSortByChange={(s) => setSortBy(s)}
+        sortOrder={sortOrder}
+        onSortOrderChange={(o) => setSortOrder(o)}
+        onResetFilters={handleResetFilters}
+        activeFilterCount={activeFilterCount}
+      />
 
       {/* Main Content Area */}
       {loadError ? (
-        <Card className="border-rose-500/30 bg-rose-500/5 p-6 text-center rounded-xl">
-          <p className="text-sm font-medium text-rose-600 dark:text-rose-400">
-            {loadError}
-          </p>
+        <Card className="border-error/30 bg-error/5 p-6 text-center">
+          <p className="text-sm font-medium text-error">{loadError}</p>
         </Card>
       ) : vehicles.length === 0 ? (
-        <Card className="py-12 text-center border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] rounded-xl shadow-xs">
+        <Card className="py-12 text-center">
           <CardContent className="space-y-4">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 dark:text-[#d0bcff] font-bold text-2xl">
-              🚌
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xl">
+              🚗
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+              <h3 className="text-base font-semibold text-foreground">
                 No vehicles added yet
               </h3>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Create your first vehicle master record to start managing your
-                fleet operations.
+              <p className="mt-1 text-sm text-muted">
+                Add your first vehicle to start building and tracking your
+                fleet.
               </p>
             </div>
-            <Button
+            <button
               type="button"
-              variant="primary"
               onClick={() => navigate("/vehicles/new")}
-              className="bg-[#8b5cf6] text-white"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-[#06b6d4] hover:bg-[#0891b2] rounded-lg shadow-sm transition-all cursor-pointer mx-auto"
             >
               + Add First Vehicle
-            </Button>
+            </button>
           </CardContent>
         </Card>
       ) : filteredVehicles.length === 0 ? (
-        <Card className="py-12 text-center border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] rounded-xl shadow-xs">
+        <Card className="py-12 text-center border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822]">
           <CardContent className="space-y-3">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+            <h3 className="text-base font-semibold text-foreground">
               No matching vehicles found
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              No vehicles matched your search query and active filter criteria.
+            <p className="text-sm text-muted">
+              No vehicles matched your selected filter criteria.
             </p>
-            <Button
+            <button
               type="button"
-              variant="ghost"
-              onClick={handleClearFilters}
-              className="text-[#8b5cf6] dark:text-[#d0bcff]"
+              onClick={handleResetFilters}
+              className="inline-flex items-center justify-center px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-[#1f2230] rounded-lg hover:bg-slate-200 dark:hover:bg-[#262837] transition-colors cursor-pointer"
             >
-              Clear Filters
-            </Button>
+              Reset Filters
+            </button>
           </CardContent>
         </Card>
       ) : (
         <>
-          {/* Mobile View: High Quality Cards (< md) */}
-          <div className="grid grid-cols-1 gap-4 md:hidden">
-            {paginatedVehicles.map((vehicle, idx) => (
+          {/* Mobile View: Responsive Cards (< md) */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:hidden">
+            {paginatedVehicles.map((vehicle) => (
               <VehicleCard
-                key={vehicle.id || vehicle.vehicleCode || `veh_card_${idx}`}
+                key={vehicle.id}
                 vehicle={vehicle}
                 trips={trips}
                 highlighted={vehicle.id === highlightedVehicleId}
@@ -1162,346 +768,35 @@ export default function VehicleList() {
                 onDelete={(v) => setVehicleToDelete(v)}
               />
             ))}
+          </div>
 
-            {/* Mobile Pagination */}
-            <div className="flex justify-center pt-2">
+          {/* Desktop View: Shared Table Design (>= md) */}
+          <div className="hidden md:block">
+            <VehicleTable
+              vehicles={paginatedVehicles}
+              trips={trips}
+              sortField={sortBy}
+              sortDirection={sortOrder}
+              onSort={handleSort}
+              onViewVehicle={(v) => setSelectedVehicle(v)}
+              onEditVehicle={(v) => handleEdit(v)}
+              onDeleteVehicle={(v) => setVehicleToDelete(v)}
+              highlightedVehicleId={highlightedVehicleId}
+            />
+
+            {/* Table Footer with Summary and Pagination */}
+            <div className="mt-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+              <div className="select-none">
+                Showing {filteredVehicles.length === 0 ? 0 : startIndex + 1} to{" "}
+                {endIndex} of {filteredVehicles.length} vehicles
+              </div>
+
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={(page) => setCurrentPage(page)}
                 compact={true}
               />
-            </div>
-          </div>
-
-          {/* Desktop View: Precision FleetCore Table */}
-          <div className="hidden md:block">
-            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] shadow-xs">
-              {/* Table Header Bar */}
-              <div className="px-4 py-3 border-b border-slate-200 dark:border-[#262837] flex justify-between items-center bg-white dark:bg-[#161822]">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                    Fleet Registry
-                  </h3>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold font-mono bg-slate-100 dark:bg-[#1f2230] text-slate-600 dark:text-slate-300">
-                    {filteredVehicles.length}
-                  </span>
-                </div>
-
-                <div className="text-xs text-slate-400">
-                  {operationalTab !== "all" && (
-                    <span className="font-medium text-cyan-600 dark:text-cyan-400">
-                      Filtering by:{" "}
-                      {operationalTab.replace(/_/g, " ").toUpperCase()}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="w-full overflow-x-auto">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-[#262837] bg-slate-50/70 dark:bg-[#13151f]">
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
-                      >
-                        REG / ID
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
-                      >
-                        MAKE & MODEL
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
-                      >
-                        CAPACITY / TYPE
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
-                      >
-                        STATUS / ACTIVITY
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
-                      >
-                        COMPLIANCE
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono"
-                      >
-                        ACTIONS
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-slate-100 dark:divide-[#202330]">
-                    {paginatedVehicles.map((vehicle, idx) => {
-                      const docStatus = getVehicleDocumentStatus(vehicle);
-                      const operational = getVehicleOperationalState(
-                        vehicle,
-                        trips,
-                      );
-                      const isHighlighted = vehicle.id === highlightedVehicleId;
-
-                      const typeLabel =
-                        VEHICLE_TYPE_LABELS[vehicle.vehicleType] ||
-                        vehicle.vehicleType ||
-                        "Vehicle";
-                      const fuelLabel =
-                        FUEL_TYPE_LABELS[vehicle.fuelType] || vehicle.fuelType;
-                      const ownershipLabel =
-                        OWNERSHIP_TYPE_LABELS[vehicle.ownershipType] ||
-                        vehicle.ownershipType;
-
-                      const criticalDoc = docStatus.criticalItems?.[0];
-
-                      // Left indicator bar matching TripList
-                      let leftBarColor = "border-l-transparent";
-                      if (docStatus.value === "expired") {
-                        leftBarColor = "border-l-4 border-l-rose-500";
-                      } else if (operational.operationalStatus === "on_trip") {
-                        leftBarColor = "border-l-4 border-l-purple-500";
-                      } else if (vehicle.isActive !== false) {
-                        leftBarColor = "border-l-4 border-l-emerald-500";
-                      }
-
-                      return (
-                        <tr
-                          key={
-                            vehicle.id ||
-                            vehicle.vehicleCode ||
-                            `veh_row_${idx}`
-                          }
-                          className={[
-                            "transition-colors duration-150 relative",
-                            leftBarColor,
-                            isHighlighted
-                              ? "bg-cyan-500/10 dark:bg-cyan-950/40 ring-1 ring-inset ring-cyan-400/40"
-                              : "hover:bg-slate-50/80 dark:hover:bg-[#1a1c28]",
-                          ].join(" ")}
-                        >
-                          {/* REG / ID */}
-                          <td className="px-4 py-3 align-middle whitespace-nowrap">
-                            <div className="flex flex-col">
-                              <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">
-                                {vehicle.vehicleNumber}
-                              </span>
-                              <span className="text-[11px] text-slate-400 dark:text-slate-400 font-medium font-mono">
-                                {vehicle.vehicleCode}
-                              </span>
-                            </div>
-                          </td>
-
-                          {/* MAKE & MODEL */}
-                          <td className="px-4 py-3 align-middle max-w-[220px]">
-                            <div className="min-w-0">
-                              <div className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">
-                                {vehicle.make} {vehicle.model}
-                              </div>
-                              <div className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                {fuelLabel}
-                                {vehicle.manufacturingYear
-                                  ? ` · ${vehicle.manufacturingYear}`
-                                  : ""}
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* CAPACITY / TYPE / OWNERSHIP */}
-                          <td className="px-4 py-3 align-middle whitespace-nowrap">
-                            <div className="min-w-0 text-xs">
-                              <div className="font-semibold text-slate-900 dark:text-slate-200">
-                                {vehicle.seatingCapacity} Seats · {typeLabel}
-                              </div>
-                              <div className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
-                                <span>{ownershipLabel}</span>
-                                {(vehicle.ownershipType === "attached" ||
-                                  vehicle.ownershipType === "leased") &&
-                                  vehicle.ownerName && (
-                                    <span className="ml-1 truncate max-w-[130px]">
-                                      ({vehicle.ownerName})
-                                    </span>
-                                  )}
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* STATUS / ACTIVITY */}
-                          <td className="px-4 py-3 align-middle whitespace-nowrap">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex items-center gap-1.5 font-medium">
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                    vehicle.isActive !== false
-                                      ? "bg-emerald-500"
-                                      : "bg-slate-400 dark:bg-slate-600"
-                                  }`}
-                                />
-                                <span
-                                  className={
-                                    vehicle.isActive !== false
-                                      ? "text-emerald-700 dark:text-emerald-400 text-xs font-semibold"
-                                      : "text-slate-500 dark:text-slate-400 text-xs font-medium"
-                                  }
-                                >
-                                  {vehicle.isActive !== false
-                                    ? "Active"
-                                    : "Inactive"}
-                                </span>
-                              </div>
-
-                              {/* Operational subtext */}
-                              <div className="text-[11px]">
-                                {operational.operationalStatus ===
-                                  "available" && (
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                                    Available
-                                  </span>
-                                )}
-                                {operational.operationalStatus ===
-                                  "on_trip" && (
-                                  <span className="text-purple-600 dark:text-purple-400 font-medium">
-                                    On Trip ({operational.subtext})
-                                  </span>
-                                )}
-                                {operational.operationalStatus ===
-                                  "maintenance" && (
-                                  <span className="text-slate-500 dark:text-slate-400">
-                                    Maintenance
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* COMPLIANCE */}
-                          <td className="px-4 py-3 align-middle whitespace-nowrap">
-                            {docStatus.value === "valid" ? (
-                              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                                Healthy
-                              </span>
-                            ) : docStatus.value === "expiring_soon" ? (
-                              <div className="flex flex-col items-start">
-                                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                                  Expiring Soon
-                                </span>
-                                {criticalDoc && (
-                                  <span className="text-[11px] text-amber-700 dark:text-amber-400/90 mt-0.5">
-                                    {criticalDoc.name}, {criticalDoc.daysLeft}{" "}
-                                    days
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-start">
-                                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
-                                  Expired
-                                </span>
-                                {criticalDoc && (
-                                  <span className="text-[11px] text-rose-700 dark:text-rose-400/90 mt-0.5">
-                                    {criticalDoc.name}
-                                    {criticalDoc.daysLeft !== null &&
-                                      ` (${Math.abs(criticalDoc.daysLeft)}d ago)`}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* ACTIONS */}
-                          <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
-                            <div className="inline-flex items-center justify-end gap-1.5">
-                              {/* View Button */}
-                              <button
-                                type="button"
-                                title="View Details"
-                                aria-label="View Details"
-                                onClick={() => setSelectedVehicle(vehicle)}
-                                className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] hover:bg-slate-50 dark:hover:bg-[#1f2230] text-slate-700 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-                              >
-                                <span className="material-symbols-outlined text-[16px] text-slate-500 dark:text-slate-400">
-                                  visibility
-                                </span>
-                                <span>View</span>
-                              </button>
-
-                              {/* Dropdown Menu */}
-                              <Dropdown
-                                align="right"
-                                trigger={
-                                  <button
-                                    type="button"
-                                    title="Vehicle actions"
-                                    aria-label="Vehicle actions"
-                                    data-testid={`vehicle-actions-btn-${vehicle.id}`}
-                                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822] hover:bg-slate-50 dark:hover:bg-[#1f2230] text-slate-600 dark:text-slate-300 flex items-center justify-center shadow-2xs transition-colors cursor-pointer"
-                                  >
-                                    <span className="material-symbols-outlined text-[18px]">
-                                      more_vert
-                                    </span>
-                                  </button>
-                                }
-                              >
-                                <DropdownItem
-                                  onClick={() => setSelectedVehicle(vehicle)}
-                                >
-                                  <span className="material-symbols-outlined mr-2 text-[16px]">
-                                    visibility
-                                  </span>
-                                  View Vehicle Details
-                                </DropdownItem>
-
-                                <DropdownItem
-                                  onClick={() => handleEdit(vehicle)}
-                                >
-                                  <span className="material-symbols-outlined mr-2 text-[16px] text-purple-600 dark:text-purple-400">
-                                    edit
-                                  </span>
-                                  Edit Vehicle
-                                </DropdownItem>
-
-                                <DropdownDivider />
-
-                                <DropdownItem
-                                  onClick={() => setVehicleToDelete(vehicle)}
-                                  className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                                >
-                                  <span className="material-symbols-outlined mr-2 text-[16px]">
-                                    delete
-                                  </span>
-                                  Delete Vehicle
-                                </DropdownItem>
-                              </Dropdown>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Table Footer with Summary and Pagination */}
-              <div className="border-t border-slate-200 dark:border-[#262837] px-4 py-3.5 bg-slate-50/50 dark:bg-[#13151f] flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="text-xs text-slate-500 dark:text-slate-400 select-none">
-                  Showing {filteredVehicles.length === 0 ? 0 : startIndex + 1}{" "}
-                  to {endIndex} of {filteredVehicles.length} vehicles
-                </div>
-
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={(page) => setCurrentPage(page)}
-                  compact={true}
-                />
-              </div>
             </div>
           </div>
         </>
@@ -1514,13 +809,19 @@ export default function VehicleList() {
         trips={trips}
         onClose={() => setSelectedVehicle(null)}
         onEdit={(v) => handleEdit(v)}
+        onCreateTrip={(v) => {
+          setSelectedVehicle(null);
+          navigate("/trips/new", {
+            state: { vehicleId: v.id, vehicleNumber: v.vehicleNumber },
+          });
+        }}
       />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={Boolean(vehicleToDelete)}
         title="Delete Vehicle?"
-        description={`Are you sure you want to delete ${vehicleToDelete?.vehicleNumber} (${vehicleToDelete?.vehicleCode})? This action cannot be undone.`}
+        description={`Are you sure you want to delete ${vehicleToDelete?.vehicleNumber} (${vehicleToDelete?.vehicleCode})?`}
         confirmText="Delete Vehicle"
         cancelText="Cancel"
         variant="danger"
