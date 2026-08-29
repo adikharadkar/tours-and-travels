@@ -84,19 +84,16 @@ export default function DriverTable({
               const op = getDriverOperationalInfo
                 ? getDriverOperationalInfo(driver)
                 : { state: "available", label: "Available" };
-
               const isHighlighted = highlightedDriverId === driver.id;
 
               const prefixLabel = PREFIX_LABELS[driver.prefix] || "";
               const displayName = prefixLabel
                 ? `${prefixLabel} ${driver.name}`
                 : driver.name;
-
               const driverTypeLabel =
                 DRIVER_TYPE_LABELS[driver.driverType] ||
                 driver.driverType ||
                 "Own";
-
               const licenseTypeLabel =
                 LICENSE_TYPE_LABELS[driver.licenseType] ||
                 driver.licenseType ||
@@ -111,20 +108,25 @@ export default function DriverTable({
                 .toUpperCase();
 
               // Left indicator bar
-              const leftBarColor =
-                op.state === "on_trip"
-                  ? "border-l-4 border-l-violet-500"
-                  : op.state === "grounded" || licStatus.value === "expired"
-                    ? "border-l-4 border-l-rose-500"
-                    : op.state === "available"
-                      ? "border-l-4 border-l-cyan-500"
-                      : "border-l-4 border-l-slate-400 dark:border-l-slate-600";
+              let leftBarColor;
+              if (op.state === "on_trip") {
+                leftBarColor = "border-l-4 border-l-violet-500";
+              } else if (
+                op.state === "grounded" ||
+                licStatus.value === "expired"
+              ) {
+                leftBarColor = "border-l-4 border-l-rose-500";
+              } else if (op.state === "available") {
+                leftBarColor = "border-l-4 border-l-cyan-500";
+              } else {
+                leftBarColor =
+                  "border-l-4 border-l-slate-400 dark:border-l-slate-600";
+              }
 
               // Operational Pill
               let opPillStyle =
                 "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20";
               let opDotStyle = "bg-cyan-500";
-
               if (op.state === "on_trip") {
                 opPillStyle =
                   "bg-violet-500/10 text-violet-700 dark:text-[#d0bcff] border border-violet-500/20";
@@ -144,7 +146,6 @@ export default function DriverTable({
                 "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20";
               let compDotStyle = "bg-emerald-500";
               let compText = "Valid";
-
               if (licStatus.value === "expired") {
                 compPillStyle =
                   "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20";
@@ -180,18 +181,14 @@ export default function DriverTable({
                         <div className="font-bold text-sm text-slate-900 dark:text-slate-100 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors truncate">
                           {displayName}
                         </div>
-
                         <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                           <span className="font-mono text-[11px] font-semibold text-slate-600 dark:text-slate-300">
                             {driver.driverCode}
                           </span>
-
                           <span>·</span>
-
                           <span className="text-[11px] capitalize">
                             {driverTypeLabel}
                           </span>
-
                           {driver.mobile && (
                             <>
                               <span>·</span>
@@ -211,7 +208,6 @@ export default function DriverTable({
                       <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100">
                         {driver.licenseNumber}
                       </span>
-
                       <span className="text-[11px] text-slate-400 dark:text-slate-400 font-medium mt-0.5">
                         {licenseTypeLabel}
                       </span>
@@ -229,7 +225,6 @@ export default function DriverTable({
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${opDotStyle}`}
                       />
-
                       <span>{op.label}</span>
                     </span>
                   </td>
@@ -245,7 +240,6 @@ export default function DriverTable({
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${compDotStyle}`}
                       />
-
                       <span>{compText}</span>
                     </span>
                   </td>
@@ -256,19 +250,14 @@ export default function DriverTable({
                       <div className="min-w-0">
                         <div className="font-semibold text-xs text-slate-900 dark:text-slate-200 truncate">
                           {op.vehicle
-                            ? `${op.vehicle.vehicleNumber}${
-                                op.vehicle.model ? ` (${op.vehicle.model})` : ""
-                              }`
+                            ? `${op.vehicle.vehicleNumber}${op.vehicle.model ? ` (${op.vehicle.model})` : ""}`
                             : op.activeTrip.vehicleNumber || "Vehicle Assigned"}
                         </div>
-
                         <div className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-400 truncate mt-0.5">
                           <span className="truncate">
                             {op.activeTrip.pickupLocation || "Origin"}
                           </span>
-
                           <span>→</span>
-
                           <span className="truncate">
                             {op.activeTrip.dropLocation || "Destination"}
                           </span>
@@ -302,7 +291,6 @@ export default function DriverTable({
                         <span className="material-symbols-outlined text-[16px] text-slate-500 dark:text-slate-400">
                           visibility
                         </span>
-
                         <span>View</span>
                       </button>
 
@@ -321,7 +309,6 @@ export default function DriverTable({
                           <span className="material-symbols-outlined text-[16px]">
                             edit
                           </span>
-
                           <span className="hidden xl:inline">Edit</span>
                         </button>
                       )}

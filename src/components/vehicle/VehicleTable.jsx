@@ -112,22 +112,25 @@ export default function VehicleTable({
               const docStatus = getVehicleDocumentStatus(vehicle);
               const isHighlighted = vehicle.id === highlightedVehicleId;
 
-              const leftBarColor =
-                vehicle.isActive === false
-                  ? "border-l-4 border-l-slate-400 dark:border-l-slate-600"
-                  : docStatus.value === "expired"
-                    ? "border-l-4 border-l-rose-500"
-                    : docStatus.value === "expiring_soon"
-                      ? "border-l-4 border-l-amber-500"
-                      : op.operationalStatus === "on_trip"
-                        ? "border-l-4 border-l-purple-500"
-                        : "border-l-4 border-l-emerald-500";
+              // Left indicator bar matching InvoiceTable / Trips
+              let leftBarColor;
+              if (vehicle.isActive === false) {
+                leftBarColor =
+                  "border-l-4 border-l-slate-400 dark:border-l-slate-600";
+              } else if (docStatus.value === "expired") {
+                leftBarColor = "border-l-4 border-l-rose-500";
+              } else if (docStatus.value === "expiring_soon") {
+                leftBarColor = "border-l-4 border-l-amber-500";
+              } else if (op.operationalStatus === "on_trip") {
+                leftBarColor = "border-l-4 border-l-purple-500";
+              } else {
+                leftBarColor = "border-l-4 border-l-emerald-500";
+              }
 
               // Operational Pill Styles
               let opPillStyle =
                 "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20";
               let opDotStyle = "bg-emerald-500";
-
               if (op.operationalStatus === "on_trip") {
                 opPillStyle =
                   "bg-purple-500/10 text-purple-700 dark:text-[#d0bcff] border border-purple-500/20";
@@ -145,7 +148,6 @@ export default function VehicleTable({
               let compPillStyle =
                 "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20";
               let compDotStyle = "bg-emerald-500";
-
               if (docStatus.value === "expired") {
                 compPillStyle =
                   "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20";
@@ -174,7 +176,6 @@ export default function VehicleTable({
                       <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
                         {vehicle.vehicleNumber}
                       </span>
-
                       <span className="text-[11px] font-mono text-slate-400 dark:text-slate-400 mt-0.5">
                         {vehicle.vehicleCode}
                       </span>
@@ -187,7 +188,6 @@ export default function VehicleTable({
                       <div className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">
                         {vehicle.make} {vehicle.model}
                       </div>
-
                       <div className="text-[11px] text-slate-400 dark:text-slate-400 truncate mt-0.5">
                         {vehicle.manufacturingYear
                           ? `${vehicle.manufacturingYear} · `
@@ -206,7 +206,6 @@ export default function VehicleTable({
                         {VEHICLE_TYPE_LABELS[vehicle.vehicleType] ||
                           vehicle.vehicleType}
                       </span>
-
                       <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
                         {vehicle.seatingCapacity} Seater
                       </span>
@@ -220,7 +219,6 @@ export default function VehicleTable({
                         vehicle.ownershipType ||
                         "Owned"}
                     </div>
-
                     {vehicle.ownerName && (
                       <div className="text-[11px] text-slate-400 dark:text-slate-400 truncate max-w-[140px] mt-0.5">
                         {vehicle.ownerName}
@@ -239,7 +237,6 @@ export default function VehicleTable({
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${opDotStyle}`}
                       />
-
                       <span>
                         {op.label ||
                           (vehicle.isActive === false
@@ -260,7 +257,6 @@ export default function VehicleTable({
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${compDotStyle}`}
                       />
-
                       <span>{docStatus.label || "Valid"}</span>
                     </span>
                   </td>
@@ -282,7 +278,6 @@ export default function VehicleTable({
                         <span className="material-symbols-outlined text-[16px] text-slate-500 dark:text-slate-400">
                           visibility
                         </span>
-
                         <span>View</span>
                       </button>
 
@@ -301,7 +296,6 @@ export default function VehicleTable({
                           <span className="material-symbols-outlined text-[16px]">
                             edit
                           </span>
-
                           <span className="hidden xl:inline">Edit</span>
                         </button>
                       )}

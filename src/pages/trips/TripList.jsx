@@ -1058,11 +1058,16 @@ export default function TripList() {
       {/* Main Content Area */}
       {viewMode === "calendar" ? (
         <TripCalendar
-          trips={filteredTrips}
+          trips={trips}
+          customers={customers}
+          vehicles={vehicles}
+          drivers={drivers}
           customerMap={customerMap}
           vehicleMap={vehicleMap}
           driverMap={driverMap}
           onSelectTrip={(t) => setSelectedTrip(t)}
+          onEditTrip={(t) => navigate(`/trips/${t.id}/edit`)}
+          onNewTrip={() => navigate("/trips/new")}
         />
       ) : isLoading ? (
         <Card className="overflow-hidden p-6 space-y-4">

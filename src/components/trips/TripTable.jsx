@@ -167,16 +167,19 @@ export default function TripTable({
               const invoice = getTripInvoice ? getTripInvoice(trip) : null;
 
               // Left indicator bar
-              const leftBarColor =
-                trip.status === "in_progress"
-                  ? "border-l-4 border-l-cyan-500"
-                  : trip.status === "completed"
-                    ? "border-l-4 border-l-emerald-500"
-                    : needsAtt
-                      ? "border-l-4 border-l-rose-500"
-                      : trip.status === "cancelled"
-                        ? "border-l-4 border-l-slate-400 dark:border-l-slate-600"
-                        : "border-l-4 border-l-violet-500";
+              let leftBarColor;
+              if (trip.status === "in_progress") {
+                leftBarColor = "border-l-4 border-l-cyan-500";
+              } else if (trip.status === "completed") {
+                leftBarColor = "border-l-4 border-l-emerald-500";
+              } else if (needsAtt) {
+                leftBarColor = "border-l-4 border-l-rose-500";
+              } else if (trip.status === "cancelled") {
+                leftBarColor =
+                  "border-l-4 border-l-slate-400 dark:border-l-slate-600";
+              } else {
+                leftBarColor = "border-l-4 border-l-violet-500";
+              }
 
               const tripTypeLabel =
                 TRIP_TYPE_LABELS[trip.tripType] ||
@@ -202,7 +205,6 @@ export default function TripTable({
                         <span className="font-mono font-bold text-sm text-slate-900 dark:text-slate-100 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
                           {trip.tripCode}
                         </span>
-
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="text-[10px] font-bold uppercase tracking-wider font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-[#202330] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#2a2d3d]">
                             {tripTypeLabel}
@@ -218,14 +220,11 @@ export default function TripTable({
                       <div className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
                         {customer ? customer.name : trip.customerName || "—"}
                       </div>
-
                       <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                         <span className="truncate">
                           {trip.pickupLocation || "Pickup"}
                         </span>
-
                         <span className="text-slate-400">→</span>
-
                         <span className="truncate">
                           {trip.dropLocation || "Drop"}
                         </span>
@@ -242,11 +241,9 @@ export default function TripTable({
                           <span className="material-symbols-outlined text-[14px] text-slate-400">
                             directions_car
                           </span>
-
                           <span>
                             {vehicle.vehicleNumber || vehicle.vehicleCode}
                           </span>
-
                           {vehicle.model && (
                             <span className="text-[11px] font-sans font-normal text-slate-400">
                               ({vehicle.model})
@@ -258,7 +255,6 @@ export default function TripTable({
                           <span className="material-symbols-outlined text-[14px]">
                             warning
                           </span>
-
                           <span>Unassigned Vehicle</span>
                         </div>
                       )}
@@ -269,7 +265,6 @@ export default function TripTable({
                           <span className="material-symbols-outlined text-[14px] text-slate-400">
                             person
                           </span>
-
                           <span>{driver.name}</span>
                         </div>
                       ) : (
@@ -277,7 +272,6 @@ export default function TripTable({
                           <span className="material-symbols-outlined text-[14px]">
                             warning
                           </span>
-
                           <span>Unassigned Driver</span>
                         </div>
                       )}
@@ -290,7 +284,6 @@ export default function TripTable({
                       <span className="font-medium">
                         {formatDateTime(trip.startDateTime)}
                       </span>
-
                       {trip.endDateTime && (
                         <span className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
                           to {formatDateTime(trip.endDateTime)}
@@ -304,7 +297,6 @@ export default function TripTable({
                     <div className="flex flex-col items-start gap-1">
                       <div className="flex items-center gap-1.5">
                         <TripStatusBadge status={trip.status} />
-
                         {needsAtt && (
                           <span
                             title="Needs attention: unassigned or delayed"
@@ -319,7 +311,6 @@ export default function TripTable({
 
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <PaymentStatusBadge status={trip.paymentStatus} />
-
                         {invoiced && (
                           <span
                             title={`Invoiced: ${invoice?.invoiceNumber || "Yes"}`}
@@ -341,7 +332,6 @@ export default function TripTable({
                           trip.totalAmount || trip.estimatedAmount || 0,
                         ).toLocaleString("en-IN")}
                       </span>
-
                       {trip.advanceAmount > 0 && (
                         <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
                           Adv: ₹
@@ -368,11 +358,10 @@ export default function TripTable({
                         <span className="material-symbols-outlined text-[16px] text-slate-500 dark:text-slate-400">
                           visibility
                         </span>
-
                         <span>View</span>
                       </button>
 
-                      {/* Three-dot Action Drawer Button */}
+                      {/* 3-dots Action Drawer Button */}
                       {onOpenActionsDrawer && (
                         <button
                           type="button"

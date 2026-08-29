@@ -130,12 +130,10 @@ export default function CustomerTable({
             {customers.map((customer) => {
               const isSelected = selectedCustomerIds.includes(customer.id);
               const isHighlighted = customer.id === highlightedCustomerId;
-
               const finBadge = getFinancialStatusBadge(
                 customer.financialStatus,
                 customer.paymentStatus,
               );
-
               const initials = (customer.name || "C")
                 .split(" ")
                 .map((n) => n[0])
@@ -143,17 +141,24 @@ export default function CustomerTable({
                 .substring(0, 2)
                 .toUpperCase();
 
-              // Left indicator bar
-              const leftBarColor =
-                customer.isActive === false
-                  ? "border-l-4 border-l-slate-400 dark:border-l-slate-600"
-                  : customer.financialStatus === "critical" ||
-                      customer.paymentStatus === "Collections - Hold"
-                    ? "border-l-4 border-l-rose-500"
-                    : customer.financialStatus === "warning" ||
-                        customer.paymentStatus === "14 Days Overdue"
-                      ? "border-l-4 border-l-amber-500"
-                      : "border-l-4 border-l-emerald-500";
+              // Left indicator bar matching InvoiceTable / Trips
+              let leftBarColor;
+              if (customer.isActive === false) {
+                leftBarColor =
+                  "border-l-4 border-l-slate-400 dark:border-l-slate-600";
+              } else if (
+                customer.financialStatus === "critical" ||
+                customer.paymentStatus === "Collections - Hold"
+              ) {
+                leftBarColor = "border-l-4 border-l-rose-500";
+              } else if (
+                customer.financialStatus === "warning" ||
+                customer.paymentStatus === "14 Days Overdue"
+              ) {
+                leftBarColor = "border-l-4 border-l-amber-500";
+              } else {
+                leftBarColor = "border-l-4 border-l-emerald-500";
+              }
 
               return (
                 <tr
@@ -191,15 +196,12 @@ export default function CustomerTable({
                       <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-[#1f2230] border border-slate-200 dark:border-[#262837] flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold text-xs shrink-0 select-none">
                         {initials}
                       </div>
-
                       <div className="min-w-0">
                         <div className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
                           {customer.name}
                         </div>
-
                         <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 dark:text-slate-400 truncate mt-0.5">
                           <span>{customer.customerCode || "—"}</span>
-
                           {customer.gstin && (
                             <>
                               <span>·</span>
@@ -228,7 +230,6 @@ export default function CustomerTable({
                           ? "corporate_fare"
                           : "person"}
                       </span>
-
                       <span>
                         {customer.customerType === "company"
                           ? "Corporate"
@@ -249,10 +250,8 @@ export default function CustomerTable({
                           —
                         </div>
                       )}
-
                       <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate mt-0.5">
                         {customer.mobile1 || customer.phone || "—"}
-
                         {customer.contactPerson && (
                           <span className="ml-1 text-slate-400">
                             ({customer.contactPerson})
@@ -267,7 +266,6 @@ export default function CustomerTable({
                     <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                       {customer.city || "—"}
                     </div>
-
                     <div className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
                       {customer.state || "—"}
                     </div>
@@ -279,7 +277,6 @@ export default function CustomerTable({
                       <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100">
                         {formatINR(customer.outstandingAmount || 0)}
                       </span>
-
                       <span
                         className={[
                           "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold font-mono",
@@ -294,7 +291,6 @@ export default function CustomerTable({
                             ].join(" ")}
                           />
                         )}
-
                         <span>{finBadge.label}</span>
                       </span>
                     </div>
@@ -308,9 +304,7 @@ export default function CustomerTable({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (onViewCustomer) {
-                            onViewCustomer(customer);
-                          }
+                          if (onViewCustomer) onViewCustomer(customer);
                         }}
                         title="View Details"
                         aria-label={`View ${customer.name}`}
@@ -319,7 +313,6 @@ export default function CustomerTable({
                         <span className="material-symbols-outlined text-[16px] text-slate-500 dark:text-slate-400">
                           visibility
                         </span>
-
                         <span>View</span>
                       </button>
 

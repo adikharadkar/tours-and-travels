@@ -1,362 +1,436 @@
 import { useState, useMemo } from "react";
-import Button from "../ui/Button";
-import Card, { CardContent, CardHeader, CardTitle } from "../ui/Card";
-import { TripStatusBadge } from "./TripStatusBadge";
-
-const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function isSameDay(d1, d2) {
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
-}
-
-function parseDate(str) {
-  if (!str) return null;
-  const d = new Date(str);
-  return isNaN(d.getTime()) ? null : d;
-}
+import CalendarHeader from "./calendar/CalendarHeader";
+import CalendarHealthBar from "./calendar/CalendarHealthBar";
+import CalendarToolbar from "./calendar/CalendarToolbar";
+import CalendarWeekView from "./calendar/CalendarWeekView";
+import CalendarDayView from "./calendar/CalendarDayView";
+import CalendarMonthView from "./calendar/CalendarMonthView";
+import CalendarResourceView from "./calendar/CalendarResourceView";
+import CalendarNeedsAttention from "./calendar/CalendarNeedsAttention";
+import {
+  parseDate,
+  detectAllConflicts,
+  getScheduleHealthMetrics,
+  isTripOnDay,
+} from "./calendar/calendarUtils";
 
 export default function TripCalendar({
   trips = [],
   customers = [],
   vehicles = [],
   drivers = [],
+  customerMap: propCustomerMap,
+  vehicleMap: propVehicleMap,
+  driverMap: propDriverMap,
   onSelectTrip,
+  onEditTrip,
+  onNewTrip: _onNewTrip,
+  initialView = "week",
+  initialDate,
+  isLoading = false,
 }) {
+  // View mode: 'week' (default), 'day', 'month'
+  const [viewMode, setViewMode] = useState(initialView);
+
+  // Schedule mode: 'trips' (default), 'vehicles', 'drivers'
+  const [scheduleMode, setScheduleMode] = useState("trips");
+
+  // Reference Date for current period
   const [currentDate, setCurrentDate] = useState(() => {
-    // Default to the month of the first trip or today
-    if (trips.length > 0 && trips[0].startDateTime) {
+    if (initialDate) {
+      const parsed = parseDate(initialDate);
+      if (parsed) return parsed;
+    }
+    if (trips.length > 0 && trips[0]?.startDateTime) {
       const firstDate = parseDate(trips[0].startDateTime);
-      if (firstDate)
-        return new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+      if (firstDate) return firstDate;
     }
     return new Date();
   });
 
+  // Selected Day (primarily for Month view details drawer)
   const [selectedDay, setSelectedDay] = useState(null);
 
+  // Health Metric quick filter
+  const [metricFilter, setMetricFilter] = useState(null);
+
+  // Search and Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [assignmentFilter, setAssignmentFilter] = useState("all");
+  const [tripTypeFilter, setTripTypeFilter] = useState("all");
+  const [vehicleFilter, setVehicleFilter] = useState("all");
+  const [driverFilter, setDriverFilter] = useState("all");
+  const [conflictOnly, setConflictOnly] = useState(false);
+
+  // Compute lookup maps
   const customerMap = useMemo(() => {
+    if (propCustomerMap) return propCustomerMap;
     const map = new Map();
     customers.forEach((c) => map.set(c.id, c));
     return map;
-  }, [customers]);
+  }, [customers, propCustomerMap]);
 
   const vehicleMap = useMemo(() => {
+    if (propVehicleMap) return propVehicleMap;
     const map = new Map();
     vehicles.forEach((v) => map.set(v.id, v));
     return map;
-  }, [vehicles]);
+  }, [vehicles, propVehicleMap]);
 
   const driverMap = useMemo(() => {
+    if (propDriverMap) return propDriverMap;
     const map = new Map();
     drivers.forEach((d) => map.set(d.id, d));
     return map;
-  }, [drivers]);
+  }, [drivers, propDriverMap]);
 
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
+  // Conflict Detection Engine
+  const { conflicts, conflictTripIdsSet, conflictsByTripIdMap } =
+    useMemo(() => {
+      return detectAllConflicts(trips, vehicleMap, driverMap);
+    }, [trips, vehicleMap, driverMap]);
 
-  const monthName = currentDate.toLocaleString("default", {
-    month: "long",
-    year: "numeric",
-  });
+  // Schedule Health Metrics
+  const healthMetrics = useMemo(() => {
+    return getScheduleHealthMetrics(trips, conflicts, currentDate);
+  }, [trips, conflicts, currentDate]);
 
-  const prevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
+  // Unassigned trips for Needs Attention
+  const unassignedTrips = useMemo(() => {
+    return trips.filter(
+      (t) =>
+        t &&
+        (!t.vehicleId || !t.driverId) &&
+        t.status !== "completed" &&
+        t.status !== "cancelled",
+    );
+  }, [trips]);
+
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery.trim()) count++;
+    if (statusFilter !== "all") count++;
+    if (assignmentFilter !== "all") count++;
+    if (tripTypeFilter !== "all") count++;
+    if (vehicleFilter !== "all") count++;
+    if (driverFilter !== "all") count++;
+    if (conflictOnly) count++;
+    if (metricFilter) count++;
+    return count;
+  }, [
+    searchQuery,
+    statusFilter,
+    assignmentFilter,
+    tripTypeFilter,
+    vehicleFilter,
+    driverFilter,
+    conflictOnly,
+    metricFilter,
+  ]);
+
+  // Reset all filters
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setAssignmentFilter("all");
+    setTripTypeFilter("all");
+    setVehicleFilter("all");
+    setDriverFilter("all");
+    setConflictOnly(false);
+    setMetricFilter(null);
+  };
+
+  // Filtered trips
+  const filteredTrips = useMemo(() => {
+    return trips.filter((trip) => {
+      if (!trip) return false;
+
+      // Metric Filter
+      if (metricFilter === "today") {
+        if (!isTripOnDay(trip, currentDate)) return false;
+      } else if (metricFilter === "in_progress") {
+        if (trip.status !== "in_progress") return false;
+      } else if (metricFilter === "unassigned") {
+        if (
+          trip.vehicleId &&
+          trip.driverId &&
+          trip.status !== "completed" &&
+          trip.status !== "cancelled"
+        )
+          return false;
+      } else if (metricFilter === "conflicts") {
+        if (!conflictTripIdsSet.has(trip.id)) return false;
+      }
+
+      // Conflict Only
+      if (conflictOnly && !conflictTripIdsSet.has(trip.id)) {
+        return false;
+      }
+
+      // Status
+      if (statusFilter !== "all" && trip.status !== statusFilter) {
+        return false;
+      }
+
+      // Assignment
+      if (assignmentFilter === "unassigned") {
+        if (trip.vehicleId && trip.driverId) return false;
+      } else if (assignmentFilter === "unassigned_vehicle") {
+        if (trip.vehicleId) return false;
+      } else if (assignmentFilter === "unassigned_driver") {
+        if (trip.driverId) return false;
+      } else if (assignmentFilter === "assigned") {
+        if (!trip.vehicleId || !trip.driverId) return false;
+      }
+
+      // Trip Type
+      if (tripTypeFilter !== "all" && trip.tripType !== tripTypeFilter) {
+        return false;
+      }
+
+      // Vehicle
+      if (vehicleFilter !== "all" && trip.vehicleId !== vehicleFilter) {
+        return false;
+      }
+
+      // Driver
+      if (driverFilter !== "all" && trip.driverId !== driverFilter) {
+        return false;
+      }
+
+      // Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const code = (trip.tripCode || "").toLowerCase();
+        const custName = (
+          customerMap.get(trip.customerId)?.name ||
+          trip.customerName ||
+          ""
+        ).toLowerCase();
+        const pickup = (trip.pickupLocation || "").toLowerCase();
+        const drop = (trip.dropLocation || "").toLowerCase();
+        const vehNum = (
+          vehicleMap.get(trip.vehicleId)?.vehicleNumber || ""
+        ).toLowerCase();
+        const drvName = (
+          driverMap.get(trip.driverId)?.name || ""
+        ).toLowerCase();
+
+        const matches =
+          code.includes(q) ||
+          custName.includes(q) ||
+          pickup.includes(q) ||
+          drop.includes(q) ||
+          vehNum.includes(q) ||
+          drvName.includes(q);
+
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+  }, [
+    trips,
+    metricFilter,
+    conflictOnly,
+    statusFilter,
+    assignmentFilter,
+    tripTypeFilter,
+    vehicleFilter,
+    driverFilter,
+    searchQuery,
+    conflictTripIdsSet,
+    customerMap,
+    vehicleMap,
+    driverMap,
+    currentDate,
+  ]);
+
+  // Navigation handlers
+  const handlePrev = () => {
+    const d = new Date(currentDate);
+    if (viewMode === "day") {
+      d.setDate(d.getDate() - 1);
+    } else if (viewMode === "week") {
+      d.setDate(d.getDate() - 7);
+    } else {
+      d.setMonth(d.getMonth() - 1);
+    }
+    setCurrentDate(d);
     setSelectedDay(null);
   };
 
-  const nextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
+  const handleNext = () => {
+    const d = new Date(currentDate);
+    if (viewMode === "day") {
+      d.setDate(d.getDate() + 1);
+    } else if (viewMode === "week") {
+      d.setDate(d.getDate() + 7);
+    } else {
+      d.setMonth(d.getMonth() + 1);
+    }
+    setCurrentDate(d);
     setSelectedDay(null);
   };
 
-  const goToToday = () => {
+  const handleToday = () => {
     const today = new Date();
-    setCurrentDate(new Date(today.getFullYear(), today.getMonth(), 1));
+    setCurrentDate(today);
     setSelectedDay(today);
   };
 
-  // Build calendar matrix
-  const calendarDays = useMemo(() => {
-    const firstDayIndex = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const daysInPrevMonth = new Date(year, month, 0).getDate();
-
-    const days = [];
-
-    // Previous month filler days
-    for (let i = firstDayIndex - 1; i >= 0; i--) {
-      days.push({
-        date: new Date(year, month - 1, daysInPrevMonth - i),
-        isCurrentMonth: false,
-      });
+  const handleSelectPreset = (preset) => {
+    const d = new Date();
+    if (preset === "tomorrow") {
+      d.setDate(d.getDate() + 1);
+      setCurrentDate(d);
+      setViewMode("day");
+    } else if (preset === "this_week") {
+      setCurrentDate(d);
+      setViewMode("week");
+    } else if (preset === "next_7_days") {
+      d.setDate(d.getDate() + 7);
+      setCurrentDate(d);
+      setViewMode("week");
     }
-
-    // Current month days
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push({
-        date: new Date(year, month, i),
-        isCurrentMonth: true,
-      });
-    }
-
-    // Next month filler days to complete 6 rows (42 days)
-    const remainingDays = 42 - days.length;
-    for (let i = 1; i <= remainingDays; i++) {
-      days.push({
-        date: new Date(year, month + 1, i),
-        isCurrentMonth: false,
-      });
-    }
-
-    return days;
-  }, [year, month]);
-
-  // Index trips by date
-  const tripsByDate = useMemo(() => {
-    const map = new Map();
-
-    trips.forEach((trip) => {
-      if (!trip.startDateTime) return;
-      const startDate = parseDate(trip.startDateTime);
-      const endDate = parseDate(trip.endDateTime) || startDate;
-
-      if (!startDate) return;
-
-      // Span over days
-      const current = new Date(
-        startDate.getFullYear(),
-        startDate.getMonth(),
-        startDate.getDate(),
-      );
-      const last = new Date(
-        endDate.getFullYear(),
-        endDate.getMonth(),
-        endDate.getDate(),
-      );
-
-      while (current <= last) {
-        const key = `${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`;
-        if (!map.has(key)) {
-          map.set(key, []);
-        }
-        map.get(key).push(trip);
-        current.setDate(current.getDate() + 1);
-      }
-    });
-
-    return map;
-  }, [trips]);
-
-  const selectedDayTrips = useMemo(() => {
-    if (!selectedDay) return [];
-    const key = `${selectedDay.getFullYear()}-${selectedDay.getMonth()}-${selectedDay.getDate()}`;
-    return tripsByDate.get(key) || [];
-  }, [selectedDay, tripsByDate]);
+  };
 
   return (
     <div className="space-y-4">
-      {/* Calendar Header */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
-          <CardTitle className="text-base font-bold">{monthName}</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={goToToday}
-            >
-              Today
-            </Button>
-            <div className="flex items-center">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={prevMonth}
-                aria-label="Previous month"
-              >
-                ‹
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={nextMonth}
-                aria-label="Next month"
-              >
-                ›
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
+      {/* 1. Calendar Header (Title, Subtitle, Schedule Mode Switcher, Date Nav, View Toggles) */}
+      <CalendarHeader
+        currentDate={currentDate}
+        viewMode={viewMode}
+        onViewModeChange={(m) => {
+          setViewMode(m);
+          setSelectedDay(null);
+        }}
+        scheduleMode={scheduleMode}
+        onScheduleModeChange={setScheduleMode}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onToday={handleToday}
+        onSelectPreset={handleSelectPreset}
+      />
 
-        <CardContent className="p-2 md:p-4">
-          {/* Days of Week Header */}
-          <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-muted mb-1">
-            {DAYS_OF_WEEK.map((day) => (
-              <div key={day} className="py-1">
-                {day}
-              </div>
-            ))}
-          </div>
+      {/* 2. Schedule Health Summary Bar */}
+      <CalendarHealthBar
+        metrics={healthMetrics}
+        activeFilter={metricFilter}
+        onSelectMetricFilter={setMetricFilter}
+      />
 
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-1">
-            {calendarDays.map(({ date, isCurrentMonth }, idx) => {
-              const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-              const dayTrips = tripsByDate.get(key) || [];
-              const isToday = isSameDay(date, new Date());
-              const isSelected = selectedDay && isSameDay(date, selectedDay);
+      {/* 3. Operational Attention (Conflicts & Unassigned Trips Drawer) */}
+      <CalendarNeedsAttention
+        conflicts={conflicts}
+        unassignedTrips={unassignedTrips}
+        customerMap={customerMap}
+        vehicleMap={vehicleMap}
+        driverMap={driverMap}
+        onSelectTrip={onSelectTrip}
+        onEditTrip={onEditTrip}
+      />
 
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setSelectedDay(date)}
-                  className={[
-                    "min-h-[72px] md:min-h-[96px] p-1.5 text-left rounded-md border transition-colors flex flex-col justify-between",
-                    isCurrentMonth
-                      ? "bg-surface border-border text-foreground"
-                      : "bg-background/40 border-border/50 text-muted opacity-60",
-                    isToday ? "ring-2 ring-primary border-primary" : "",
-                    isSelected ? "bg-primary/5 border-primary" : "",
-                    "hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                  ].join(" ")}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span
-                      className={[
-                        "text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center",
-                        isToday
-                          ? "bg-primary text-primary-foreground"
-                          : "text-foreground",
-                      ].join(" ")}
-                    >
-                      {date.getDate()}
-                    </span>
-                    {dayTrips.length > 0 && (
-                      <span className="text-[10px] font-mono px-1 rounded bg-primary/10 text-primary font-semibold">
-                        {dayTrips.length}
-                      </span>
-                    )}
-                  </div>
+      {/* 4. Calendar Search & Filter Toolbar */}
+      <CalendarToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        assignmentFilter={assignmentFilter}
+        onAssignmentFilterChange={setAssignmentFilter}
+        tripTypeFilter={tripTypeFilter}
+        onTripTypeFilterChange={setTripTypeFilter}
+        vehicleFilter={vehicleFilter}
+        onVehicleFilterChange={setVehicleFilter}
+        driverFilter={driverFilter}
+        onDriverFilterChange={setDriverFilter}
+        conflictOnly={conflictOnly}
+        onConflictOnlyChange={setConflictOnly}
+        vehicles={vehicles}
+        drivers={drivers}
+        onResetFilters={handleResetFilters}
+        activeFilterCount={activeFilterCount}
+      />
 
-                  {/* Trip Pills in cell */}
-                  <div className="mt-1 space-y-1 w-full overflow-hidden">
-                    {dayTrips.slice(0, 2).map((trip) => {
-                      const cust = customerMap.get(trip.customerId);
-                      return (
-                        <div
-                          key={trip.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectTrip(trip);
-                          }}
-                          className={[
-                            "px-1.5 py-0.5 rounded text-[10px] truncate cursor-pointer font-medium",
-                            trip.status === "confirmed"
-                              ? "bg-primary/10 text-primary hover:bg-primary/20"
-                              : trip.status === "in_progress"
-                                ? "bg-warning/10 text-warning hover:bg-warning/20"
-                                : trip.status === "completed"
-                                  ? "bg-success/10 text-success hover:bg-success/20"
-                                  : "bg-muted/20 text-muted hover:bg-muted/30",
-                          ].join(" ")}
-                          title={`${trip.tripCode} - ${cust?.name || "Customer"}`}
-                        >
-                          <span className="font-mono">{trip.tripCode}</span> ·{" "}
-                          {cust?.name || "Customer"}
-                        </div>
-                      );
-                    })}
-                    {dayTrips.length > 2 && (
-                      <span className="text-[9px] text-muted block text-center">
-                        +{dayTrips.length - 2} more
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Selected Day Details Panel */}
-      {selectedDay && (
-        <Card>
-          <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold">
-              Trips for{" "}
-              {selectedDay.toLocaleDateString("en-IN", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
-            </CardTitle>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedDay(null)}
-            >
-              Close Details
-            </Button>
-          </CardHeader>
-          <CardContent className="p-4">
-            {selectedDayTrips.length === 0 ? (
-              <p className="text-xs text-muted">
-                No trips scheduled for this date.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {selectedDayTrips.map((trip) => {
-                  const cust = customerMap.get(trip.customerId);
-                  const veh = vehicleMap.get(trip.vehicleId);
-                  const drv = driverMap.get(trip.driverId);
-
-                  return (
-                    <div
-                      key={trip.id}
-                      onClick={() => onSelectTrip(trip)}
-                      className="p-3 rounded-lg border border-border bg-surface hover:border-primary cursor-pointer transition-colors space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold text-foreground">
-                          {trip.tripCode}
-                        </span>
-                        <TripStatusBadge status={trip.status} />
-                      </div>
-                      <div className="text-xs font-semibold text-foreground truncate">
-                        {cust?.name || "Customer"}
-                      </div>
-                      <div className="text-[11px] text-muted">
-                        {trip.pickupLocation} → {trip.dropLocation}
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-muted pt-1 border-t border-border">
-                        <span>{veh ? veh.vehicleNumber : "Vehicle"}</span>
-                        <span>{drv ? drv.name : "Driver"}</span>
-                        <span className="font-mono font-bold text-foreground">
-                          ₹
-                          {Number(trip.totalAmount || 0).toLocaleString(
-                            "en-IN",
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* 5. Main Calendar Content Area */}
+      {isLoading ? (
+        <div className="py-20 text-center rounded-xl border border-slate-200 dark:border-[#262837] bg-white dark:bg-[#161822]">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-violet-600 border-r-transparent align-[-0.125em]" />
+          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            Loading operational calendar data...
+          </p>
+        </div>
+      ) : scheduleMode === "vehicles" ? (
+        <CalendarResourceView
+          resourceType="vehicles"
+          currentDate={currentDate}
+          viewMode={viewMode === "day" ? "day" : "week"}
+          trips={filteredTrips}
+          vehicles={vehicles}
+          drivers={drivers}
+          customerMap={customerMap}
+          vehicleMap={vehicleMap}
+          driverMap={driverMap}
+          conflictTripIdsSet={conflictTripIdsSet}
+          conflictsByTripIdMap={conflictsByTripIdMap}
+          onSelectTrip={onSelectTrip}
+        />
+      ) : scheduleMode === "drivers" ? (
+        <CalendarResourceView
+          resourceType="drivers"
+          currentDate={currentDate}
+          viewMode={viewMode === "day" ? "day" : "week"}
+          trips={filteredTrips}
+          vehicles={vehicles}
+          drivers={drivers}
+          customerMap={customerMap}
+          vehicleMap={vehicleMap}
+          driverMap={driverMap}
+          conflictTripIdsSet={conflictTripIdsSet}
+          conflictsByTripIdMap={conflictsByTripIdMap}
+          onSelectTrip={onSelectTrip}
+        />
+      ) : viewMode === "week" ? (
+        <CalendarWeekView
+          currentDate={currentDate}
+          trips={filteredTrips}
+          customerMap={customerMap}
+          vehicleMap={vehicleMap}
+          driverMap={driverMap}
+          conflictTripIdsSet={conflictTripIdsSet}
+          conflictsByTripIdMap={conflictsByTripIdMap}
+          onSelectTrip={onSelectTrip}
+          onSelectDay={(day) => {
+            setCurrentDate(day);
+            setViewMode("day");
+          }}
+        />
+      ) : viewMode === "day" ? (
+        <CalendarDayView
+          currentDate={currentDate}
+          trips={filteredTrips}
+          customerMap={customerMap}
+          vehicleMap={vehicleMap}
+          driverMap={driverMap}
+          conflictTripIdsSet={conflictTripIdsSet}
+          conflictsByTripIdMap={conflictsByTripIdMap}
+          onSelectTrip={onSelectTrip}
+        />
+      ) : (
+        <CalendarMonthView
+          currentDate={currentDate}
+          trips={filteredTrips}
+          customerMap={customerMap}
+          vehicleMap={vehicleMap}
+          driverMap={driverMap}
+          selectedDay={selectedDay}
+          onSelectDay={setSelectedDay}
+          onCloseSelectedDay={() => setSelectedDay(null)}
+          onSelectTrip={onSelectTrip}
+        />
       )}
     </div>
   );
