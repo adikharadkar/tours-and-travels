@@ -33,7 +33,7 @@ export default function SidebarNavigation({
         />
         <SidebarNavItem
           name="Calendar"
-          path="/trips?view=calendar"
+          path="/calendar"
           icon="calendar_month"
           isCollapsed={isCollapsed}
           onClick={onItemClick}
