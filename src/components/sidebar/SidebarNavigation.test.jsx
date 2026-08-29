@@ -165,7 +165,7 @@ describe("SidebarNavigation", () => {
       screen.getByRole("link", {
         name: /Calendar/,
       }),
-    ).toHaveAttribute("href", "/trips?view=calendar");
+    ).toHaveAttribute("href", "/calendar");
 
     expect(
       screen.getByRole("link", {

@@ -68,6 +68,14 @@ describe("App", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("renders the Calendar page when navigating to /calendar", () => {
+    renderWithRoute("/calendar");
+    expect(
+      screen.getAllByRole("heading", { name: /Trip Calendar|Calendar/i })
+        .length,
+    ).toBeGreaterThan(0);
+  });
+
   it("renders the Settings page when navigating to /settings", () => {
     renderWithRoute("/settings");
     expect(

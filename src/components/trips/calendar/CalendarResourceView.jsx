@@ -22,6 +22,8 @@ export default function CalendarResourceView({
   conflictTripIdsSet = new Set(),
   conflictsByTripIdMap = new Map(),
   onSelectTrip,
+  onSelectVehicle,
+  onSelectDriver,
 }) {
   const days = useMemo(() => {
     if (viewMode === "day") {
@@ -149,7 +151,54 @@ export default function CalendarResourceView({
                   className="hover:bg-slate-50/60 dark:hover:bg-[#191b26] transition-colors"
                 >
                   {/* Resource Info Column (Sticky) */}
-                  <td className="p-3 sticky left-0 bg-white dark:bg-[#161822] z-10 border-r border-slate-200 dark:border-[#262837] shadow-xs">
+                  <td
+                    className={[
+                      "p-3 sticky left-0 bg-white dark:bg-[#161822] z-10 border-r border-slate-200 dark:border-[#262837] shadow-xs",
+                      (resourceType === "vehicles" && onSelectVehicle) ||
+                      (resourceType === "drivers" && onSelectDriver)
+                        ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1c1f2b] transition-colors"
+                        : "",
+                    ].join(" ")}
+                    onClick={() => {
+                      if (resourceType === "vehicles" && onSelectVehicle) {
+                        const targetVeh = vehicles.find((v) => v.id === res.id);
+                        if (targetVeh) onSelectVehicle(targetVeh);
+                      } else if (resourceType === "drivers" && onSelectDriver) {
+                        const targetDrv = drivers.find((d) => d.id === res.id);
+                        if (targetDrv) onSelectDriver(targetDrv);
+                      }
+                    }}
+                    role={
+                      (resourceType === "vehicles" && onSelectVehicle) ||
+                      (resourceType === "drivers" && onSelectDriver)
+                        ? "button"
+                        : undefined
+                    }
+                    tabIndex={
+                      (resourceType === "vehicles" && onSelectVehicle) ||
+                      (resourceType === "drivers" && onSelectDriver)
+                        ? 0
+                        : undefined
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        if (resourceType === "vehicles" && onSelectVehicle) {
+                          const targetVeh = vehicles.find(
+                            (v) => v.id === res.id,
+                          );
+                          if (targetVeh) onSelectVehicle(targetVeh);
+                        } else if (
+                          resourceType === "drivers" &&
+                          onSelectDriver
+                        ) {
+                          const targetDrv = drivers.find(
+                            (d) => d.id === res.id,
+                          );
+                          if (targetDrv) onSelectDriver(targetDrv);
+                        }
+                      }
+                    }}
+                  >
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-[#1f212d] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#262837] shrink-0">
                         <span className="material-symbols-outlined text-[18px]">
@@ -159,8 +208,14 @@ export default function CalendarResourceView({
                         </span>
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate font-mono">
-                          {res.primaryText}
+                        <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate font-mono flex items-center gap-1.5">
+                          <span>{res.primaryText}</span>
+                          {((resourceType === "vehicles" && onSelectVehicle) ||
+                            (resourceType === "drivers" && onSelectDriver)) && (
+                            <span className="material-symbols-outlined text-[14px] text-slate-400 opacity-0 group-hover:opacity-100">
+                              open_in_new
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                           {res.secondaryText}

@@ -23,9 +23,12 @@ export default function TripCalendar({
   vehicleMap: propVehicleMap,
   driverMap: propDriverMap,
   onSelectTrip,
+  onSelectVehicle,
+  onSelectDriver,
   onEditTrip,
   onNewTrip: _onNewTrip,
   initialView = "week",
+  initialScheduleMode = "trips",
   initialDate,
   isLoading = false,
 }) {
@@ -33,7 +36,7 @@ export default function TripCalendar({
   const [viewMode, setViewMode] = useState(initialView);
 
   // Schedule mode: 'trips' (default), 'vehicles', 'drivers'
-  const [scheduleMode, setScheduleMode] = useState("trips");
+  const [scheduleMode, setScheduleMode] = useState(initialScheduleMode);
 
   // Reference Date for current period
   const [currentDate, setCurrentDate] = useState(() => {
@@ -377,6 +380,8 @@ export default function TripCalendar({
           conflictTripIdsSet={conflictTripIdsSet}
           conflictsByTripIdMap={conflictsByTripIdMap}
           onSelectTrip={onSelectTrip}
+          onSelectVehicle={onSelectVehicle}
+          onSelectDriver={onSelectDriver}
         />
       ) : scheduleMode === "drivers" ? (
         <CalendarResourceView
@@ -392,6 +397,8 @@ export default function TripCalendar({
           conflictTripIdsSet={conflictTripIdsSet}
           conflictsByTripIdMap={conflictsByTripIdMap}
           onSelectTrip={onSelectTrip}
+          onSelectVehicle={onSelectVehicle}
+          onSelectDriver={onSelectDriver}
         />
       ) : viewMode === "week" ? (
         <CalendarWeekView

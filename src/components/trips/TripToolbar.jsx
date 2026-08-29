@@ -54,8 +54,6 @@ export default function TripToolbar({
   onSortByChange,
   onResetFilters,
   onExportCsv,
-  viewMode = "list",
-  onViewModeChange,
   activeFilterCount = 0,
 }) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -226,45 +224,6 @@ export default function TripToolbar({
               </span>
             )}
           </button>
-
-          {/* View Mode Toggle: List / Calendar */}
-          {onViewModeChange && (
-            <div className="flex items-center p-0.5 rounded-lg border border-slate-200 dark:border-[#262837] bg-slate-50 dark:bg-[#191b26] shadow-2xs">
-              <button
-                type="button"
-                onClick={() => onViewModeChange("list")}
-                aria-label="List"
-                className={[
-                  "h-8 px-2.5 rounded-md text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer",
-                  viewMode === "list"
-                    ? "bg-white dark:bg-[#222533] text-slate-900 dark:text-slate-100 shadow-2xs"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200",
-                ].join(" ")}
-              >
-                <span className="material-symbols-outlined text-[16px]">
-                  table_rows
-                </span>
-                <span className="hidden sm:inline">List</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onViewModeChange("calendar")}
-                aria-label="Calendar"
-                className={[
-                  "h-8 px-2.5 rounded-md text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer",
-                  viewMode === "calendar"
-                    ? "bg-white dark:bg-[#222533] text-slate-900 dark:text-slate-100 shadow-2xs"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200",
-                ].join(" ")}
-              >
-                <span className="material-symbols-outlined text-[16px]">
-                  calendar_month
-                </span>
-                <span className="hidden sm:inline">Calendar</span>
-              </button>
-            </div>
-          )}
 
           {/* Export CSV Button */}
           {onExportCsv && (

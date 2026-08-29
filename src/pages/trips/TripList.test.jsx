@@ -173,16 +173,12 @@ describe("TripList Page", () => {
     expect(screen.getAllByText("Unassigned Driver").length).toBeGreaterThan(0);
   });
 
-  it("toggles view between List and Calendar mode", () => {
+  it("renders list only and does not contain calendar view toggle", () => {
     renderWithRouter(<TripList />);
 
-    const calendarBtn = screen.getByRole("button", { name: /Calendar/i });
-    fireEvent.click(calendarBtn);
-
-    const listBtn = screen.getByRole("button", { name: /List/i });
-    expect(listBtn).toBeInTheDocument();
-    fireEvent.click(listBtn);
-
+    expect(
+      screen.queryByRole("button", { name: /^Calendar$/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Active Operations")).toBeInTheDocument();
   });
 

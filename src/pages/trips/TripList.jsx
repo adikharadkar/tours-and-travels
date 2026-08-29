@@ -20,7 +20,6 @@ import TripTable from "../../components/trips/TripTable";
 import TripCard from "../../components/trips/TripCard";
 import TripDetailsModal from "../../components/trips/TripDetailsModal";
 import TripActionsDrawer from "../../components/trips/TripActionsDrawer";
-import TripCalendar from "../../components/trips/TripCalendar";
 
 import {
   getTrips,
@@ -49,7 +48,6 @@ export default function TripList() {
   const [invoices, setInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [viewMode, setViewMode] = useState("list"); // 'list' | 'calendar'
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -1050,26 +1048,11 @@ export default function TripList() {
         onSortByChange={(val) => setSortBy(val)}
         onResetFilters={resetFilters}
         onExportCsv={handleExportCsv}
-        viewMode={viewMode}
-        onViewModeChange={(mode) => setViewMode(mode)}
         activeFilterCount={activeFilterCount}
       />
 
       {/* Main Content Area */}
-      {viewMode === "calendar" ? (
-        <TripCalendar
-          trips={trips}
-          customers={customers}
-          vehicles={vehicles}
-          drivers={drivers}
-          customerMap={customerMap}
-          vehicleMap={vehicleMap}
-          driverMap={driverMap}
-          onSelectTrip={(t) => setSelectedTrip(t)}
-          onEditTrip={(t) => navigate(`/trips/${t.id}/edit`)}
-          onNewTrip={() => navigate("/trips/new")}
-        />
-      ) : isLoading ? (
+      {isLoading ? (
         <Card className="overflow-hidden p-6 space-y-4">
           <div className="animate-pulse space-y-3">
             <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/4" />

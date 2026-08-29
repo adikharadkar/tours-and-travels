@@ -12,6 +12,7 @@ import DriverList from "./pages/drivers/DriverList";
 import DriverForm from "./pages/drivers/DriverForm";
 import TripList from "./pages/trips/TripList";
 import TripForm from "./pages/trips/TripForm";
+import Calendar from "./pages/Calendar";
 import InvoiceList from "./pages/invoices/InvoiceList";
 import GenerateInvoice from "./pages/invoices/GenerateInvoice";
 
@@ -33,6 +34,8 @@ function App() {
         <Route path="/trips" element={<TripList />} />
         <Route path="/trips/new" element={<TripForm />} />
         <Route path="/trips/:tripId/edit" element={<TripForm />} />
+
+        <Route path="/calendar" element={<Calendar />} />
 
         <Route path="/vehicles" element={<VehicleList />} />
         <Route path="/vehicles/new" element={<VehicleForm />} />
