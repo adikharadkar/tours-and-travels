@@ -153,8 +153,6 @@ export default function TripDetailsModal({
   const handleInvoiceView = () => {
     if (onViewInvoice) {
       onViewInvoice(invoice);
-    } else if (typeof window !== "undefined") {
-      window.location.href = "/invoices";
     }
   };
 
@@ -183,12 +181,17 @@ export default function TripDetailsModal({
               <TripStatusBadge status={trip.status} />
               <PaymentStatusBadge paymentStatus={trip.paymentStatus} />
               {hasInvoice && (
-                <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/40">
+                <button
+                  type="button"
+                  onClick={handleInvoiceView}
+                  className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/40 hover:bg-violet-100 dark:hover:bg-violet-900/60 transition-colors cursor-pointer"
+                  title={`View Invoice ${invoice.invoiceNumber}`}
+                >
                   <span className="material-symbols-outlined text-[13px]">
                     receipt
                   </span>
                   <span>{invoice.invoiceNumber}</span>
-                </span>
+                </button>
               )}
             </div>
           </div>

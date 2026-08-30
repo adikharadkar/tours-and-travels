@@ -20,6 +20,7 @@ import TripTable from "../../components/trips/TripTable";
 import TripCard from "../../components/trips/TripCard";
 import TripDetailsModal from "../../components/trips/TripDetailsModal";
 import TripActionsDrawer from "../../components/trips/TripActionsDrawer";
+import InvoiceDetailsModal from "../../components/invoices/InvoiceDetailsModal";
 
 import {
   getTrips,
@@ -66,6 +67,7 @@ export default function TripList() {
   // Selection for details / actions
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [actionDrawerTrip, setActionDrawerTrip] = useState(null);
+  const [viewingInvoice, setViewingInvoice] = useState(null);
   const [tripToCancel, setTripToCancel] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
   const [tripToDelete, setTripToDelete] = useState(null);
@@ -127,6 +129,102 @@ export default function TripList() {
     }
   }, [location.state]);
 
+  // Handle URL query parameters for context-aware deep links & filters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const dateParam = params.get("date") || params.get("dateFilter");
+    const statusParam = params.get("status") || params.get("statusFilter");
+    const tabParam = params.get("tab");
+    const invoiceParam =
+      params.get("invoiceFilter") || params.get("invoiceStatus");
+    const kpiParam = params.get("kpi") || params.get("activeKpiFilter");
+    const searchParam = params.get("search") || params.get("q");
+    const tripIdParam = params.get("tripId") || params.get("id");
+    const vehicleParam = params.get("vehicleId") || params.get("vehicle");
+    const driverParam = params.get("driverId") || params.get("driver");
+    const paymentParam = params.get("payment") || params.get("paymentStatus");
+
+    if (dateParam) {
+      setDateFilter(dateParam);
+      if (dateParam === "today") {
+        setActiveKpiFilter("today");
+      }
+    }
+    if (statusParam) {
+      setStatusFilter(statusParam);
+      if (statusParam === "in_progress") {
+        setActiveTab("in_progress");
+        setActiveKpiFilter("in_progress");
+      } else if (statusParam === "confirmed") {
+        setActiveTab("confirmed");
+      } else if (statusParam === "completed") {
+        setActiveTab("completed");
+      }
+    }
+    if (tabParam) {
+      setActiveTab(tabParam);
+      if (tabParam === "ready_to_invoice") {
+        setStatusFilter("completed");
+        setInvoiceFilter("ready_to_invoice");
+        setActiveKpiFilter("ready_to_invoice");
+      } else if (tabParam === "needs_attention") {
+        setActiveKpiFilter("needs_attention");
+      }
+    }
+    if (invoiceParam) {
+      setInvoiceFilter(invoiceParam);
+      if (invoiceParam === "ready_to_invoice") {
+        setStatusFilter("completed");
+        setActiveTab("ready_to_invoice");
+        setActiveKpiFilter("ready_to_invoice");
+      }
+    }
+    if (kpiParam) {
+      setActiveKpiFilter(kpiParam);
+      if (kpiParam === "today") {
+        setDateFilter("today");
+        setStatusFilter("all");
+        setInvoiceFilter("all");
+        setActiveTab("all");
+      } else if (kpiParam === "in_progress") {
+        setStatusFilter("in_progress");
+        setDateFilter("all");
+        setInvoiceFilter("all");
+        setActiveTab("in_progress");
+      } else if (kpiParam === "ready_to_invoice") {
+        setStatusFilter("completed");
+        setInvoiceFilter("ready_to_invoice");
+        setDateFilter("all");
+        setActiveTab("ready_to_invoice");
+      } else if (kpiParam === "needs_attention") {
+        setStatusFilter("all");
+        setDateFilter("all");
+        setInvoiceFilter("all");
+        setActiveTab("needs_attention");
+      }
+    }
+    if (searchParam) {
+      setSearch(searchParam);
+    }
+    if (vehicleParam) {
+      setVehicleFilter(vehicleParam);
+    }
+    if (driverParam) {
+      setDriverFilter(driverParam);
+    }
+    if (paymentParam) {
+      setPaymentFilter(paymentParam);
+    }
+    if (tripIdParam && trips.length > 0) {
+      const found = trips.find(
+        (t) => t.id === tripIdParam || t.tripCode === tripIdParam,
+      );
+      if (found) {
+        setSelectedTrip(found);
+      }
+    }
+  }, [location.search, trips]);
+
   // Lookup maps
   const customerMap = useMemo(() => {
     const map = new Map();
@@ -179,6 +277,50 @@ export default function TripList() {
       );
     },
     [invoiceByTripIdMap],
+  );
+
+  const handleViewInvoice = useCallback(
+    (target, explicitInvoice) => {
+      let resolvedInvoice = explicitInvoice;
+      if (!resolvedInvoice) {
+        if (target?.invoiceNumber || (target?.documentType && target?.items)) {
+          resolvedInvoice = target;
+        } else if (target) {
+          resolvedInvoice = getTripInvoice(target);
+        }
+      }
+
+      if (!resolvedInvoice && target) {
+        try {
+          const allInvoices = getInvoices() || [];
+          resolvedInvoice = allInvoices.find(
+            (inv) =>
+              inv.documentStatus !== "cancelled" &&
+              ((target.id && inv.tripId === target.id) ||
+                (target.tripCode && inv.tripCode === target.tripCode) ||
+                (target.invoiceId && inv.id === target.invoiceId) ||
+                (target.invoiceNumber &&
+                  inv.invoiceNumber === target.invoiceNumber)),
+          );
+        } catch (err) {
+          console.error("Error looking up invoice:", err);
+        }
+      }
+
+      if (resolvedInvoice) {
+        setSelectedTrip(null);
+        setActionDrawerTrip(null);
+        setViewingInvoice(resolvedInvoice);
+      } else {
+        setToast({
+          id: Date.now(),
+          message:
+            "Unable to open invoice details. No active invoice found for this trip.",
+          variant: "error",
+        });
+      }
+    },
+    [getTripInvoice],
   );
 
   const isTripNeedsAttention = useCallback(
@@ -1148,6 +1290,7 @@ export default function TripList() {
               }}
               onViewTrip={(t) => setSelectedTrip(t)}
               onOpenActionsDrawer={(t) => setActionDrawerTrip(t)}
+              onViewInvoice={handleViewInvoice}
               highlightedTripId={highlightedTripId}
             />
 
@@ -1189,6 +1332,7 @@ export default function TripList() {
                   highlighted={trip.id === highlightedTripId}
                   onView={(t) => setSelectedTrip(t)}
                   onOpenActions={(t) => setActionDrawerTrip(t)}
+                  onViewInvoice={handleViewInvoice}
                 />
               );
             })}
@@ -1217,6 +1361,15 @@ export default function TripList() {
         driver={selectedTrip ? driverMap.get(selectedTrip.driverId) : null}
         invoice={selectedTrip ? getTripInvoice(selectedTrip) : null}
         onClose={() => setSelectedTrip(null)}
+        onViewInvoice={(inv) => handleViewInvoice(selectedTrip, inv)}
+        onCreateInvoice={(t) => {
+          setSelectedTrip(null);
+          navigate(`/invoices/generate/${t.id}`);
+        }}
+        onEdit={(t) => {
+          setSelectedTrip(null);
+          navigate(`/trips/${t.id}/edit`);
+        }}
         onOpenActions={(t) => {
           setSelectedTrip(null);
           setActionDrawerTrip(t);
@@ -1238,6 +1391,14 @@ export default function TripList() {
         }
         invoice={actionDrawerTrip ? getTripInvoice(actionDrawerTrip) : null}
         onClose={() => setActionDrawerTrip(null)}
+        onViewInvoice={(t, inv) => {
+          setActionDrawerTrip(null);
+          handleViewInvoice(t, inv);
+        }}
+        onViewDetails={(t) => {
+          setActionDrawerTrip(null);
+          setSelectedTrip(t);
+        }}
         onConfirm={(t) => {
           setActionDrawerTrip(null);
           handleConfirm(t);
@@ -1269,7 +1430,7 @@ export default function TripList() {
         }}
         onGenerateInvoice={(t) => {
           setActionDrawerTrip(null);
-          navigate(`/invoices/new?tripId=${t.id}`);
+          navigate(`/invoices/generate/${t.id}`);
         }}
         onEdit={(t) => {
           setActionDrawerTrip(null);
@@ -1485,6 +1646,13 @@ export default function TripList() {
         variant="danger"
         onConfirm={handleDeleteSubmit}
         onClose={() => setTripToDelete(null)}
+      />
+
+      {/* Existing Invoice Details Modal */}
+      <InvoiceDetailsModal
+        open={Boolean(viewingInvoice)}
+        invoice={viewingInvoice}
+        onClose={() => setViewingInvoice(null)}
       />
     </div>
   );

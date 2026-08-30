@@ -6,6 +6,9 @@ export default function DashboardAttentionCenter({
   vehicleAlerts = [],
   driverAlerts = [],
   overdueInvoices = [],
+  onViewInvoice,
+  onViewDriver,
+  onViewVehicle,
 }) {
   const navigate = useNavigate();
 
@@ -76,7 +79,14 @@ export default function DashboardAttentionCenter({
             {overdueInvoices.slice(0, 2).map((inv) => (
               <div
                 key={`alert_inv_${inv.id}`}
-                className="p-3 rounded-lg border border-amber-500/20 bg-amber-50/50 dark:bg-amber-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                onClick={() => {
+                  if (onViewInvoice) {
+                    onViewInvoice(inv);
+                  } else {
+                    navigate(`/invoices?status=overdue&invoiceId=${inv.id}`);
+                  }
+                }}
+                className="p-3 rounded-lg border border-amber-500/20 bg-amber-50/50 dark:bg-amber-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs cursor-pointer hover:border-amber-500/40 transition-colors"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -99,7 +109,14 @@ export default function DashboardAttentionCenter({
                   type="button"
                   variant="secondary"
                   size="sm"
-                  onClick={() => navigate("/invoices")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onViewInvoice) {
+                      onViewInvoice(inv);
+                    } else {
+                      navigate(`/invoices?status=overdue&invoiceId=${inv.id}`);
+                    }
+                  }}
                   className="h-7 text-xs shrink-0 self-start sm:self-center"
                 >
                   View Invoice
@@ -113,10 +130,17 @@ export default function DashboardAttentionCenter({
               return (
                 <div
                   key={`alert_drv_${driver.id || idx}`}
-                  className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
+                  onClick={() => {
+                    if (onViewDriver) {
+                      onViewDriver(driver);
+                    } else {
+                      navigate(`/drivers?licenseStatus=${status.value}`);
+                    }
+                  }}
+                  className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs cursor-pointer hover:opacity-95 transition-all ${
                     isExpired
-                      ? "border-rose-500/20 bg-rose-50/50 dark:bg-rose-950/20"
-                      : "border-amber-500/20 bg-amber-50/50 dark:bg-amber-950/20"
+                      ? "border-rose-500/20 bg-rose-50/50 dark:bg-rose-950/20 hover:border-rose-500/40"
+                      : "border-amber-500/20 bg-amber-50/50 dark:bg-amber-950/20 hover:border-amber-500/40"
                   }`}
                 >
                   <div className="min-w-0">
@@ -145,7 +169,10 @@ export default function DashboardAttentionCenter({
                     type="button"
                     variant="secondary"
                     size="sm"
-                    onClick={() => navigate(`/drivers/${driver.id}/edit`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/drivers/${driver.id}/edit`);
+                    }}
                     className="h-7 text-xs shrink-0 self-start sm:self-center"
                   >
                     Update License
@@ -160,10 +187,17 @@ export default function DashboardAttentionCenter({
               return (
                 <div
                   key={`alert_veh_${vehicle.id || idx}`}
-                  className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
+                  onClick={() => {
+                    if (onViewVehicle) {
+                      onViewVehicle(vehicle);
+                    } else {
+                      navigate(`/vehicles?documentStatus=${status.value}`);
+                    }
+                  }}
+                  className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs cursor-pointer hover:opacity-95 transition-all ${
                     isExpired
-                      ? "border-rose-500/20 bg-rose-50/50 dark:bg-rose-950/20"
-                      : "border-amber-500/20 bg-amber-50/50 dark:bg-amber-950/20"
+                      ? "border-rose-500/20 bg-rose-50/50 dark:bg-rose-950/20 hover:border-rose-500/40"
+                      : "border-amber-500/20 bg-amber-50/50 dark:bg-amber-950/20 hover:border-amber-500/40"
                   }`}
                 >
                   <div className="min-w-0">
@@ -193,7 +227,10 @@ export default function DashboardAttentionCenter({
                     type="button"
                     variant="secondary"
                     size="sm"
-                    onClick={() => navigate(`/vehicles/${vehicle.id}/edit`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/vehicles/${vehicle.id}/edit`);
+                    }}
                     className="h-7 text-xs shrink-0 self-start sm:self-center"
                   >
                     Update Docs

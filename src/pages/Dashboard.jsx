@@ -8,6 +8,11 @@ import DashboardQuickNavigation from "../components/dashboard/DashboardQuickNavi
 import DashboardSkeleton from "../components/dashboard/DashboardSkeleton";
 import ErrorState from "../components/ui/ErrorState";
 
+import TripDetailsModal from "../components/trips/TripDetailsModal";
+import InvoiceDetailsModal from "../components/invoices/InvoiceDetailsModal";
+import DriverDetailsModal from "../components/drivers/DriverDetailsModal";
+import VehicleDetailsModal from "../components/vehicle/VehicleDetailsModal";
+
 import { getVehicles } from "../services/vehicleService";
 import { getCustomers } from "../services/customerService";
 import { getDrivers } from "../services/driverService";
@@ -29,6 +34,12 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
+
+  // Selected records for dashboard modals
+  const [selectedTrip, setSelectedTrip] = useState(null);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [selectedDriver, setSelectedDriver] = useState(null);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
 
   // Load all operational datasets
   const loadDashboardData = useCallback(() => {
@@ -224,6 +235,7 @@ export default function Dashboard() {
             customers={customers}
             vehicles={vehicles}
             drivers={drivers}
+            onViewTrip={(trip) => setSelectedTrip(trip)}
           />
         </div>
 
@@ -232,6 +244,9 @@ export default function Dashboard() {
             vehicleAlerts={vehicleAlerts}
             driverAlerts={driverAlerts}
             overdueInvoices={overdueInvoices}
+            onViewInvoice={(inv) => setSelectedInvoice(inv)}
+            onViewDriver={(drv) => setSelectedDriver(drv)}
+            onViewVehicle={(veh) => setSelectedVehicle(veh)}
           />
         </div>
       </div>
@@ -257,6 +272,43 @@ export default function Dashboard() {
         totalCustomers={customers.length}
         totalInvoices={invoices.length}
       />
+
+      {/* Direct Record Modals on Dashboard */}
+      {selectedTrip && (
+        <TripDetailsModal
+          trip={selectedTrip}
+          isOpen={!!selectedTrip}
+          onClose={() => setSelectedTrip(null)}
+          customer={customers.find((c) => c.id === selectedTrip.customerId)}
+          vehicle={vehicles.find((v) => v.id === selectedTrip.vehicleId)}
+          driver={drivers.find((d) => d.id === selectedTrip.driverId)}
+        />
+      )}
+
+      {selectedInvoice && (
+        <InvoiceDetailsModal
+          invoice={selectedInvoice}
+          isOpen={!!selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+          onInvoiceUpdated={loadDashboardData}
+        />
+      )}
+
+      {selectedDriver && (
+        <DriverDetailsModal
+          driver={selectedDriver}
+          isOpen={!!selectedDriver}
+          onClose={() => setSelectedDriver(null)}
+        />
+      )}
+
+      {selectedVehicle && (
+        <VehicleDetailsModal
+          vehicle={selectedVehicle}
+          isOpen={!!selectedVehicle}
+          onClose={() => setSelectedVehicle(null)}
+        />
+      )}
     </div>
   );
 }

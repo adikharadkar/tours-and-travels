@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 import InvoiceOverview from "../../components/invoices/InvoiceOverview";
 import InvoiceToolbar from "../../components/invoices/InvoiceToolbar";
@@ -32,6 +32,7 @@ const ITEMS_PER_PAGE = 8;
 
 export default function InvoiceList() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Primary data state
   const [invoices, setInvoices] = useState([]);
@@ -45,7 +46,7 @@ export default function InvoiceList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("all");
   const [documentStatus, setDocumentStatus] = useState("all");
-  const [datePreset, setDatePreset] = useState("last_30_days");
+  const [datePreset, setDatePreset] = useState("all");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [customerFilter, setCustomerFilter] = useState("all");
@@ -91,6 +92,54 @@ export default function InvoiceList() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Handle URL query parameters for context-aware filters and modals
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const statusParam = params.get("status") || params.get("paymentStatus");
+    const docStatusParam =
+      params.get("documentStatus") || params.get("docStatus");
+    const dateParam = params.get("date") || params.get("datePreset");
+    const searchParam = params.get("search") || params.get("q");
+    const invoiceIdParam = params.get("invoiceId") || params.get("id");
+    const customerParam = params.get("customer") || params.get("customerId");
+    const docTypeParam = params.get("documentType") || params.get("type");
+
+    if (statusParam) {
+      if (statusParam === "overdue") {
+        setPaymentStatus("overdue");
+      } else if (statusParam === "outstanding" || statusParam === "unpaid") {
+        setPaymentStatus("unpaid");
+      } else {
+        setPaymentStatus(statusParam);
+      }
+    }
+    if (docStatusParam) {
+      setDocumentStatus(docStatusParam);
+    }
+    if (dateParam) {
+      setDatePreset(dateParam);
+    }
+    if (searchParam) {
+      setSearchQuery(searchParam);
+    }
+    if (customerParam) {
+      setCustomerFilter(customerParam);
+    }
+    if (docTypeParam) {
+      setDocumentType(docTypeParam);
+    }
+    if (invoiceIdParam && invoices.length > 0) {
+      const found = invoices.find(
+        (inv) =>
+          inv.id === invoiceIdParam || inv.invoiceNumber === invoiceIdParam,
+      );
+      if (found) {
+        setSelectedInvoice(found);
+        setIsDetailsOpen(true);
+      }
+    }
+  }, [location.search, invoices]);
 
   // Compute live KPIs from actual invoice dataset
   const kpis = useMemo(() => {

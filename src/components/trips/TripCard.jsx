@@ -26,9 +26,11 @@ export default function TripCard({
   customer,
   vehicle,
   driver,
+  invoice,
   onView,
   onOpenActions,
   onMore,
+  onViewInvoice,
   highlighted = false,
 }) {
   const tripTypeLabel =
@@ -66,7 +68,26 @@ export default function TripCard({
 
           <div className="flex flex-col items-end gap-1">
             <TripStatusBadge status={trip.status} />
-            <PaymentStatusBadge paymentStatus={trip.paymentStatus} />
+            <div className="flex items-center gap-1">
+              <PaymentStatusBadge paymentStatus={trip.paymentStatus} />
+              {invoice && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewInvoice?.(trip, invoice);
+                  }}
+                  title={`View Invoice: ${invoice.invoiceNumber}`}
+                  aria-label={`View invoice for ${trip.tripCode}`}
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/60 dark:hover:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/40 cursor-pointer transition-colors inline-flex items-center gap-0.5"
+                >
+                  <span className="material-symbols-outlined text-[11px]">
+                    receipt_long
+                  </span>
+                  <span>{invoice.invoiceNumber || "INV"}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

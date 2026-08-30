@@ -72,6 +72,48 @@ export default function VehicleList() {
     }
   }, [location.state]);
 
+  // Handle URL query parameters for deep linking and filters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get("tab") || params.get("operationalTab");
+    const docParam = params.get("documentStatus") || params.get("docStatus");
+    const statusParam = params.get("status");
+    const typeParam = params.get("type");
+    const ownershipParam = params.get("ownership");
+    const searchParam = params.get("search") || params.get("q");
+    const vehicleIdParam = params.get("vehicleId") || params.get("id");
+
+    if (tabParam) {
+      setOperationalTab(tabParam);
+    }
+    if (docParam) {
+      setDocStatusFilter(docParam);
+    }
+    if (statusParam) {
+      setStatusFilter(statusParam);
+    }
+    if (typeParam) {
+      setTypeFilter(typeParam);
+    }
+    if (ownershipParam) {
+      setOwnershipFilter(ownershipParam);
+    }
+    if (searchParam) {
+      setSearch(searchParam);
+    }
+    if (vehicleIdParam && vehicles.length > 0) {
+      const found = vehicles.find(
+        (v) =>
+          v.id === vehicleIdParam ||
+          v.vehicleNumber === vehicleIdParam ||
+          v.vehicleCode === vehicleIdParam,
+      );
+      if (found) {
+        setSelectedVehicle(found);
+      }
+    }
+  }, [location.search, vehicles]);
+
   // Fleet Statistics
   const stats = useMemo(() => {
     let activeCount = 0;

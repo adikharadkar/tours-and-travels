@@ -58,6 +58,7 @@ export default function TripTable({
   onSort,
   onViewTrip,
   onOpenActionsDrawer,
+  onViewInvoice,
   highlightedTripId,
 }) {
   return (
@@ -312,12 +313,21 @@ export default function TripTable({
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <PaymentStatusBadge status={trip.paymentStatus} />
                         {invoiced && (
-                          <span
-                            title={`Invoiced: ${invoice?.invoiceNumber || "Yes"}`}
-                            className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/40"
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onViewInvoice) {
+                                onViewInvoice(trip, invoice);
+                              }
+                            }}
+                            data-testid={`trip-view-invoice-badge-${trip.id}`}
+                            title={`View Invoice: ${invoice?.invoiceNumber || "Yes"}`}
+                            aria-label={`View invoice for ${trip.tripCode}`}
+                            className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/60 dark:hover:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/40 cursor-pointer transition-colors inline-flex items-center gap-0.5"
                           >
                             INV
-                          </span>
+                          </button>
                         )}
                       </div>
                     </div>

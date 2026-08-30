@@ -26,7 +26,7 @@ export default function DashboardKpiRow({
         cardHover: "hover:border-[#8455ef]/40 dark:hover:border-[#d0bcff]/30",
         borderAccent: "group-hover:border-[#8455ef]/30",
       },
-      onClick: () => navigate("/trips"),
+      onClick: () => navigate("/trips?date=today"),
     },
     {
       id: "kpi-in-progress",
@@ -41,7 +41,7 @@ export default function DashboardKpiRow({
         cardHover: "hover:border-cyan-500/40 dark:hover:border-[#4cd7f6]/30",
         borderAccent: "group-hover:border-cyan-500/30",
       },
-      onClick: () => navigate("/trips"),
+      onClick: () => navigate("/trips?status=in_progress"),
     },
     {
       id: "kpi-ready-to-invoice",
@@ -57,7 +57,7 @@ export default function DashboardKpiRow({
           "hover:border-emerald-500/40 dark:hover:border-emerald-400/30",
         borderAccent: "group-hover:border-emerald-500/30",
       },
-      onClick: () => navigate("/invoices/generate"),
+      onClick: () => navigate("/trips?invoiceFilter=ready_to_invoice"),
     },
     {
       id: "kpi-outstanding-payments",
@@ -80,7 +80,7 @@ export default function DashboardKpiRow({
             : "hover:border-indigo-500/40 dark:hover:border-indigo-400/30",
         borderAccent: "group-hover:border-amber-500/30",
       },
-      onClick: () => navigate("/invoices"),
+      onClick: () => navigate("/invoices?paymentStatus=unpaid"),
     },
     {
       id: "kpi-attention-required",

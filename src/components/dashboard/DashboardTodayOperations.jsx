@@ -8,6 +8,7 @@ export default function DashboardTodayOperations({
   customers = [],
   vehicles = [],
   drivers = [],
+  onViewTrip,
 }) {
   const navigate = useNavigate();
 
@@ -15,6 +16,14 @@ export default function DashboardTodayOperations({
   const getCustomer = (id) => customers.find((c) => c.id === id);
   const getVehicle = (id) => vehicles.find((v) => v.id === id);
   const getDriver = (id) => drivers.find((d) => d.id === id);
+
+  const handleTripClick = (trip) => {
+    if (onViewTrip) {
+      onViewTrip(trip);
+    } else {
+      navigate(`/trips?tripId=${trip.id}`);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full rounded-xl bg-white dark:bg-[#18191b] border border-slate-200/90 dark:border-[#27272a] shadow-xs">
@@ -38,7 +47,7 @@ export default function DashboardTodayOperations({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => navigate("/trips")}
+          onClick={() => navigate("/trips?date=today")}
           className="text-xs h-7 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100"
         >
           <span>All Trips</span>
@@ -86,12 +95,13 @@ export default function DashboardTodayOperations({
               return (
                 <div
                   key={trip.id}
-                  className="py-3 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                  onClick={() => handleTripClick(trip)}
+                  className="py-3 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group cursor-pointer hover:bg-slate-50/60 dark:hover:bg-[#1f2023] px-2 -mx-2 rounded-lg transition-colors"
                 >
                   <div className="min-w-0 flex-1">
                     {/* Top Row: Trip Code, Customer & Live indicator */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-bold text-xs text-slate-900 dark:text-zinc-100">
+                      <span className="font-mono font-bold text-xs text-slate-900 dark:text-zinc-100 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
                         {trip.tripCode}
                       </span>
                       <span className="text-slate-300 dark:text-zinc-600">
@@ -158,7 +168,10 @@ export default function DashboardTodayOperations({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigate(`/trips`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTripClick(trip);
+                      }}
                       className="text-[11px] h-6 px-2 text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100"
                     >
                       View Trip

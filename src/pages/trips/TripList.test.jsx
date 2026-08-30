@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import TripList from "./TripList";
 import * as tripService from "../../services/tripService";
@@ -201,5 +201,63 @@ describe("TripList Page", () => {
     expect(screen.getByText(/Trip Actions/i)).toBeInTheDocument();
     expect(screen.getAllByText("TRP-0101").length).toBeGreaterThan(1);
     expect(screen.getByText(/Complete Trip/i)).toBeInTheDocument();
+  });
+
+  it("opens invoice details modal when clicking invoice indicator in trips table", () => {
+    renderWithRouter(<TripList />);
+
+    const invBadge = screen.getByTestId("trip-view-invoice-badge-trip_1");
+    expect(invBadge).toBeInTheDocument();
+
+    fireEvent.click(invBadge);
+
+    // Invoice details modal should open with invoiceNumber
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText("INV-2026-001")).toBeInTheDocument();
+  });
+
+  it("opens invoice details modal when clicking View Invoice in trip details modal", () => {
+    renderWithRouter(<TripList />);
+
+    // Click View on trip_1
+    const viewButtons = screen.getAllByRole("button", { name: /^View$/i });
+    expect(viewButtons.length).toBeGreaterThan(0);
+    fireEvent.click(viewButtons[0]);
+
+    // Trip details modal should open
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    // Click View Invoice inside TripDetailsModal
+    const viewInvoiceBtns = screen.getAllByRole("button", {
+      name: /View Invoice/i,
+    });
+    expect(viewInvoiceBtns.length).toBeGreaterThan(0);
+    fireEvent.click(viewInvoiceBtns[0]);
+
+    // Invoice details modal should open with invoiceNumber
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText("INV-2026-001")).toBeInTheDocument();
+  });
+
+  it("opens invoice details modal when clicking View Invoice in trip actions drawer", () => {
+    renderWithRouter(<TripList />);
+
+    const trip1ActionsBtn = screen.getByTestId("trip-actions-btn-trip_1");
+    fireEvent.click(trip1ActionsBtn);
+
+    expect(screen.getByTestId("trip-actions-drawer")).toBeInTheDocument();
+
+    const viewInvoiceAction = screen.getByRole("button", {
+      name: /View Invoice INV-2026-001/i,
+    });
+    expect(viewInvoiceAction).toBeInTheDocument();
+    fireEvent.click(viewInvoiceAction);
+
+    // Invoice details modal should open with invoiceNumber
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText("INV-2026-001")).toBeInTheDocument();
   });
 });

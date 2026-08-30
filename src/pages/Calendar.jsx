@@ -6,6 +6,7 @@ import TripDetailsModal from "../components/trips/TripDetailsModal";
 import TripActionsDrawer from "../components/trips/TripActionsDrawer";
 import VehicleDetailsModal from "../components/vehicle/VehicleDetailsModal";
 import DriverDetailsModal from "../components/drivers/DriverDetailsModal";
+import InvoiceDetailsModal from "../components/invoices/InvoiceDetailsModal";
 import Toast from "../components/ui/Toast";
 
 import {
@@ -36,6 +37,7 @@ export default function Calendar() {
   // Selected item states for modals and drawers
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [actionDrawerTrip, setActionDrawerTrip] = useState(null);
+  const [viewingInvoice, setViewingInvoice] = useState(null);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [selectedDriver, setSelectedDriver] = useState(null);
 
@@ -117,6 +119,50 @@ export default function Calendar() {
     [invoiceByTripIdMap],
   );
 
+  const handleViewInvoice = useCallback(
+    (target, explicitInvoice) => {
+      let resolvedInvoice = explicitInvoice;
+      if (!resolvedInvoice) {
+        if (target?.invoiceNumber || (target?.documentType && target?.items)) {
+          resolvedInvoice = target;
+        } else if (target) {
+          resolvedInvoice = getTripInvoice(target);
+        }
+      }
+
+      if (!resolvedInvoice && target) {
+        try {
+          const allInvoices = getInvoices() || [];
+          resolvedInvoice = allInvoices.find(
+            (inv) =>
+              inv.documentStatus !== "cancelled" &&
+              ((target.id && inv.tripId === target.id) ||
+                (target.tripCode && inv.tripCode === target.tripCode) ||
+                (target.invoiceId && inv.id === target.invoiceId) ||
+                (target.invoiceNumber &&
+                  inv.invoiceNumber === target.invoiceNumber)),
+          );
+        } catch (err) {
+          console.error("Error looking up invoice:", err);
+        }
+      }
+
+      if (resolvedInvoice) {
+        setSelectedTrip(null);
+        setActionDrawerTrip(null);
+        setViewingInvoice(resolvedInvoice);
+      } else {
+        setToast({
+          id: Date.now(),
+          message:
+            "Unable to open invoice details. No active invoice found for this trip.",
+          variant: "error",
+        });
+      }
+    },
+    [getTripInvoice],
+  );
+
   // Initial schedule mode and view from URL query params if provided
   const initialScheduleMode = searchParams.get("mode") || "trips";
   const initialView = searchParams.get("view") || "week";
@@ -164,6 +210,15 @@ export default function Calendar() {
         driver={selectedTrip ? driverMap.get(selectedTrip.driverId) : null}
         invoice={selectedTrip ? getTripInvoice(selectedTrip) : null}
         onClose={() => setSelectedTrip(null)}
+        onViewInvoice={(inv) => handleViewInvoice(selectedTrip, inv)}
+        onCreateInvoice={(t) => {
+          setSelectedTrip(null);
+          navigate(`/invoices/generate/${t.id}`);
+        }}
+        onEdit={(t) => {
+          setSelectedTrip(null);
+          navigate(`/trips/${t.id}/edit`);
+        }}
         onOpenActions={(t) => {
           setSelectedTrip(null);
           setActionDrawerTrip(t);
@@ -185,6 +240,22 @@ export default function Calendar() {
         }
         invoice={actionDrawerTrip ? getTripInvoice(actionDrawerTrip) : null}
         onClose={() => setActionDrawerTrip(null)}
+        onViewInvoice={(t, inv) => {
+          setActionDrawerTrip(null);
+          handleViewInvoice(t, inv);
+        }}
+        onViewDetails={(t) => {
+          setActionDrawerTrip(null);
+          setSelectedTrip(t);
+        }}
+        onGenerateInvoice={(t) => {
+          setActionDrawerTrip(null);
+          navigate(`/invoices/generate/${t.id}`);
+        }}
+        onEdit={(t) => {
+          setActionDrawerTrip(null);
+          navigate(`/trips/${t.id}/edit`);
+        }}
         onConfirm={(t) => {
           try {
             confirmTrip(t.id);
@@ -289,6 +360,13 @@ export default function Calendar() {
         propVehicles={vehicles}
         onClose={() => setSelectedDriver(null)}
         onEdit={(d) => navigate(`/drivers/${d.id}/edit`)}
+      />
+
+      {/* Invoice Details Modal */}
+      <InvoiceDetailsModal
+        open={Boolean(viewingInvoice)}
+        invoice={viewingInvoice}
+        onClose={() => setViewingInvoice(null)}
       />
     </div>
   );

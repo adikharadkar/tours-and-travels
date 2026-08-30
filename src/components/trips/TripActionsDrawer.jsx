@@ -180,12 +180,20 @@ export default function TripActionsDrawer({
                 <TripStatusBadge status={trip.status} />
                 <PaymentStatusBadge paymentStatus={trip.paymentStatus} />
                 {isInvoiced ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/40">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onViewInvoice?.(trip, invoice);
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 transition-colors cursor-pointer"
+                    title={`View Invoice ${invoice.invoiceNumber}`}
+                  >
                     <span className="material-symbols-outlined text-[12px]">
                       receipt_long
                     </span>
                     {invoice.invoiceNumber}
-                  </span>
+                  </button>
                 ) : isReadyToInvoice ? (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/40">
                     Ready to Invoice
@@ -366,8 +374,8 @@ export default function TripActionsDrawer({
                 </button>
               )}
 
-              {/* Completed & Invoiced -> View Invoice */}
-              {trip.status === "completed" && isInvoiced && (
+              {/* Invoiced -> View Invoice */}
+              {isInvoiced && (
                 <button
                   type="button"
                   onClick={() => {
@@ -497,6 +505,38 @@ export default function TripActionsDrawer({
                         </div>
                         <div className="text-[11px] text-slate-400">
                           Create billing invoice for customer
+                        </div>
+                      </div>
+                    </div>
+                    <span className="material-symbols-outlined text-[16px] text-slate-400">
+                      chevron_right
+                    </span>
+                  </button>
+                )}
+
+                {/* 3b. View Tax Invoice (if invoiced) */}
+                {isInvoiced && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onViewInvoice?.(trip, invoice);
+                    }}
+                    className="w-full px-3.5 py-3 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-[#1a1c28] transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-[18px] text-cyan-600 dark:text-cyan-400">
+                        receipt_long
+                      </span>
+                      <div>
+                        <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                          View Invoice{" "}
+                          {invoice?.invoiceNumber
+                            ? `(${invoice.invoiceNumber})`
+                            : ""}
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          View tax invoice breakdown, taxes & payments
                         </div>
                       </div>
                     </div>

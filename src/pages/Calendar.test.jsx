@@ -8,6 +8,9 @@ import * as vehicleService from "../services/vehicleService";
 import * as driverService from "../services/driverService";
 import * as invoiceService from "../services/invoiceService";
 
+const today = new Date();
+const todayStr = today.toISOString().slice(0, 10);
+
 const mockTrips = [
   {
     id: "trip_1",
@@ -20,8 +23,8 @@ const mockTrips = [
     driverId: "drv_1",
     pickupLocation: "Chhatrapati Sambhajinagar",
     dropLocation: "Pune",
-    startDateTime: "2026-08-27T08:30:00",
-    endDateTime: "2026-08-27T20:30:00",
+    startDateTime: `${todayStr}T08:30:00`,
+    endDateTime: `${todayStr}T20:30:00`,
     totalAmount: 24500,
   },
   {
@@ -35,8 +38,8 @@ const mockTrips = [
     driverId: "drv_2",
     pickupLocation: "CIDCO",
     dropLocation: "Waluj MIDC",
-    startDateTime: "2026-08-26T09:00:00",
-    endDateTime: "2026-08-26T18:00:00",
+    startDateTime: `${todayStr}T09:00:00`,
+    endDateTime: `${todayStr}T18:00:00`,
     totalAmount: 8500,
   },
   {
@@ -50,8 +53,8 @@ const mockTrips = [
     driverId: null, // Unassigned driver
     pickupLocation: "Railway Station",
     dropLocation: "Ajanta Caves",
-    startDateTime: "2026-08-28T07:00:00",
-    endDateTime: "2026-08-28T19:00:00",
+    startDateTime: `${todayStr}T07:00:00`,
+    endDateTime: `${todayStr}T19:00:00`,
     totalAmount: 14000,
   },
   {
@@ -65,8 +68,8 @@ const mockTrips = [
     driverId: "drv_1",
     pickupLocation: "Airport",
     dropLocation: "Hotel Rama",
-    startDateTime: "2026-08-27T14:00:00", // Overlaps with trip_1 on veh_1 and drv_1 (conflict)
-    endDateTime: "2026-08-27T16:00:00",
+    startDateTime: `${todayStr}T14:00:00`, // Overlaps with trip_1 on veh_1 and drv_1 (conflict)
+    endDateTime: `${todayStr}T16:00:00`,
     totalAmount: 3200,
   },
 ];

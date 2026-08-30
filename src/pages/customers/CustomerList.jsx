@@ -74,6 +74,41 @@ export default function CustomerList() {
     }
   }, [location.state]);
 
+  // Handle URL query parameters for deep linking and filters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const typeParam = params.get("type") || params.get("customerType");
+    const pmtParam = params.get("paymentStatus");
+    const stateParam = params.get("state");
+    const statusParam = params.get("status");
+    const searchParam = params.get("search") || params.get("q");
+    const customerIdParam = params.get("customerId") || params.get("id");
+
+    if (typeParam) {
+      setTypeFilter(typeParam);
+    }
+    if (pmtParam) {
+      setPaymentStatusFilter(pmtParam);
+    }
+    if (stateParam) {
+      setStateFilter(stateParam);
+    }
+    if (statusParam) {
+      setStatusFilter(statusParam);
+    }
+    if (searchParam) {
+      setSearch(searchParam);
+    }
+    if (customerIdParam && customers.length > 0) {
+      const found = customers.find(
+        (c) => c.id === customerIdParam || c.customerCode === customerIdParam,
+      );
+      if (found) {
+        setSelectedCustomer(found);
+      }
+    }
+  }, [location.search, customers]);
+
   // Tab counts
   const tabCounts = useMemo(() => {
     let company = 0;

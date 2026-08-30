@@ -65,7 +65,7 @@ export default function DashboardBillingSnapshot({
         <div
           role="button"
           tabIndex={0}
-          onClick={() => navigate("/invoices")}
+          onClick={() => navigate("/invoices?paymentStatus=unpaid")}
           className="p-3 sm:p-3.5 rounded-lg bg-slate-50 dark:bg-[#121314] border border-slate-200/80 dark:border-[#27272a] hover:border-indigo-500/30 transition-colors cursor-pointer"
         >
           <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
@@ -83,7 +83,7 @@ export default function DashboardBillingSnapshot({
         <div
           role="button"
           tabIndex={0}
-          onClick={() => navigate("/invoices")}
+          onClick={() => navigate("/invoices?status=overdue")}
           className="p-3 sm:p-3.5 rounded-lg bg-slate-50 dark:bg-[#121314] border border-slate-200/80 dark:border-[#27272a] hover:border-amber-500/30 transition-colors cursor-pointer"
         >
           <div className="flex items-center justify-between">
@@ -110,7 +110,9 @@ export default function DashboardBillingSnapshot({
         <div
           role="button"
           tabIndex={0}
-          onClick={() => navigate("/invoices")}
+          onClick={() =>
+            navigate("/invoices?paymentStatus=paid&date=this_month")
+          }
           className="p-3 sm:p-3.5 rounded-lg bg-slate-50 dark:bg-[#121314] border border-slate-200/80 dark:border-[#27272a] hover:border-emerald-500/30 transition-colors cursor-pointer"
         >
           <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
@@ -128,7 +130,7 @@ export default function DashboardBillingSnapshot({
         <div
           role="button"
           tabIndex={0}
-          onClick={() => navigate("/invoices/generate")}
+          onClick={() => navigate("/trips?invoiceFilter=ready_to_invoice")}
           className="p-3 sm:p-3.5 rounded-lg bg-slate-50 dark:bg-[#121314] border border-slate-200/80 dark:border-[#27272a] hover:border-[#8455ef]/30 transition-colors cursor-pointer"
         >
           <span className="text-[11px] font-semibold text-purple-600 dark:text-[#d0bcff] uppercase tracking-wider block">
@@ -143,7 +145,7 @@ export default function DashboardBillingSnapshot({
             </span>
           </div>
           <span className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 block truncate">
-            Click to generate bills
+            Click to view ready trips
           </span>
         </div>
       </div>

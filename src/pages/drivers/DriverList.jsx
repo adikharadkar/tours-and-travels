@@ -99,6 +99,47 @@ export default function DriverList() {
     }
   }, [location.state]);
 
+  // Handle URL query parameters for deep linking and filters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get("tab");
+    const licParam = params.get("licenseStatus") || params.get("license");
+    const statusParam = params.get("status");
+    const typeParam = params.get("type") || params.get("driverType");
+    const searchParam = params.get("search") || params.get("q");
+    const driverIdParam = params.get("driverId") || params.get("id");
+
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+    if (licParam) {
+      setLicenseStatusFilter(licParam);
+      if (licParam === "expired" || licParam === "expiring_soon") {
+        setActiveTab("compliance");
+      }
+    }
+    if (statusParam) {
+      setStatusFilter(statusParam);
+      if (statusParam === "active") {
+        setActiveTab("active_only");
+      }
+    }
+    if (typeParam) {
+      setTypeFilter(typeParam);
+    }
+    if (searchParam) {
+      setSearch(searchParam);
+    }
+    if (driverIdParam && drivers.length > 0) {
+      const found = drivers.find(
+        (d) => d.id === driverIdParam || d.driverCode === driverIdParam,
+      );
+      if (found) {
+        setSelectedDriver(found);
+      }
+    }
+  }, [location.search, drivers]);
+
   // Lookup maps
   const vehicleMap = useMemo(() => {
     const map = new Map();
