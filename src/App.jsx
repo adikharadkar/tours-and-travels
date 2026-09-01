@@ -16,7 +16,15 @@ import Calendar from "./pages/Calendar";
 import InvoiceList from "./pages/invoices/InvoiceList";
 import GenerateInvoice from "./pages/invoices/GenerateInvoice";
 
+import { invoke } from "@tauri-apps/api/core";
+
+
+
 function App() {
+
+  const databasePath = invoke("get_database_path");
+
+console.log("FleetCore database:", databasePath);
   return (
     <Routes>
       <Route element={<AppLayout />}>
