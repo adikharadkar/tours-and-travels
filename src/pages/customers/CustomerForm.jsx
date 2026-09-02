@@ -32,41 +32,85 @@ export default function CustomerForm() {
   const isIndividual = formData.customerType === "individual";
 
   useEffect(() => {
-    if (!customerId) {
-      return;
-    }
+  if (!customerId) {
+    return;
+  }
 
-    const customer = getCustomerById(customerId);
+  let cancelled = false;
 
-    if (!customer) {
-      navigate("/customers", {
-        replace: true,
+  const loadCustomer = async () => {
+    try {
+      const customer = await getCustomerById(customerId);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (!customer) {
+        navigate("/customers", {
+          replace: true,
+        });
+        return;
+      }
+
+      setFormData({
+        ...INITIAL_FORM_DATA,
+        ...customer,
+        vendorCode:
+          customer.vendorCode ||
+          customer.customerVendorCode ||
+          "",
+        openingBalance:
+          customer.openingBalance !== undefined &&
+          customer.openingBalance !== null
+            ? String(customer.openingBalance)
+            : "0.00",
+        openingBalanceType:
+          customer.openingBalanceType || "debit",
+        creditLimit:
+          customer.creditLimit !== undefined &&
+          customer.creditLimit !== null
+            ? String(customer.creditLimit)
+            : "",
+        paymentTerms:
+          customer.paymentTerms || "30_days",
+        billingCycle:
+          customer.billingCycle || "monthly",
+        billingSameAsAddress:
+          customer.billingSameAsAddress ?? false,
+        isActive:
+          customer.isActive !== false,
       });
-      return;
+
+      setErrors({});
+    } catch (error) {
+      if (cancelled) {
+        return;
+      }
+
+      console.error("Failed to load customer:", error);
+
+      setToast({
+        id:
+          crypto.randomUUID?.() ||
+          String(Date.now()),
+        title: "Unable to load customer",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong while loading the customer.",
+        variant: "error",
+        duration: 5000,
+      });
     }
+  };
 
-    setFormData({
-      ...INITIAL_FORM_DATA,
-      ...customer,
-      vendorCode: customer.vendorCode || customer.customerVendorCode || "",
-      openingBalance:
-        customer.openingBalance !== undefined &&
-        customer.openingBalance !== null
-          ? String(customer.openingBalance)
-          : "0.00",
-      openingBalanceType: customer.openingBalanceType || "debit",
-      creditLimit:
-        customer.creditLimit !== undefined && customer.creditLimit !== null
-          ? String(customer.creditLimit)
-          : "",
-      paymentTerms: customer.paymentTerms || "30_days",
-      billingCycle: customer.billingCycle || "monthly",
-      billingSameAsAddress: customer.billingSameAsAddress ?? false,
-      isActive: customer.isActive !== false,
-    });
+  loadCustomer();
 
-    setErrors({});
-  }, [customerId, navigate]);
+  return () => {
+    cancelled = true;
+  };
+}, [customerId, navigate]);
 
   const cityOptions = useMemo(() => {
     const selectedState = states.find(
@@ -95,7 +139,7 @@ export default function CustomerForm() {
 
       // When billing address is synchronized with customer address
       if (previous.billingSameAsAddress) {
-        if (field === "name" && !previous.billingName) {
+        if (field === "name") {
           updated.billingName = value;
         }
         if (field === "address") {
@@ -220,7 +264,7 @@ export default function CustomerForm() {
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setToast(null);
 
@@ -278,6 +322,7 @@ export default function CustomerForm() {
 
     try {
       const payload = buildCustomerPayload(formToValidate);
+      console.log('payload', payload);
 
       if (isEditMode) {
         const updatedCustomer = updateCustomer(customerId, payload);
@@ -292,10 +337,11 @@ export default function CustomerForm() {
             highlightedCustomerId: updatedCustomer.id,
           },
         });
+
         return;
       }
 
-      const newCustomer = saveCustomer(payload);
+      const newCustomer = await saveCustomer(payload);
 
       navigate("/customers", {
         state: {
@@ -309,10 +355,9 @@ export default function CustomerForm() {
       });
     } catch (error) {
       console.error("Failed to save customer:", error);
-      setIsSubmitting(false);
 
       setToast({
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+        id: crypto.randomUUID?.() || String(Date.now()),
         title: isEditMode
           ? "Unable to update customer"
           : "Unable to save customer",
@@ -323,6 +368,8 @@ export default function CustomerForm() {
         variant: "error",
         duration: 5000,
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

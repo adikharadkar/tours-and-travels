@@ -43,11 +43,12 @@ export default function Calendar() {
 
   const [toast, setToast] = useState(null);
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
+    const customers = await getCustomers();
     try {
       setTrips(getTrips() || []);
-      setCustomers(getCustomers() || []);
+      setCustomers(customers || []);
       setVehicles(getVehicles() || []);
       setDrivers(getDrivers() || []);
       setInvoices(getInvoices() || []);

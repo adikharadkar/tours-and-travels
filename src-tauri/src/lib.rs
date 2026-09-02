@@ -38,7 +38,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             greet,
-            commands::create_customer
+            commands::customer::create_customer,
+            commands::customer::get_customer,
+            commands::customer::list_customers
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

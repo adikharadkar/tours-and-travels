@@ -37,9 +37,9 @@ export default function CustomerList() {
   const [highlightedCustomerId, setHighlightedCustomerId] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
-  const loadData = () => {
+  const loadData = async () => {
     try {
-      const data = getCustomers();
+      const data = await getCustomers();
       setCustomers(data);
       setLoadError("");
     } catch (err) {

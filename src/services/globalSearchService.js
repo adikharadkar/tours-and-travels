@@ -14,7 +14,7 @@ import { getTrips } from "./tripService";
  *   totalMatches: number
  * }}
  */
-export function executeGlobalSearch(query = "") {
+export async function executeGlobalSearch(query = "") {
   const normalized = query.trim().toLowerCase();
   if (!normalized) {
     return {
@@ -29,7 +29,7 @@ export function executeGlobalSearch(query = "") {
   // 1. Search Customers
   const customerResults = [];
   try {
-    const customers = getCustomers() || [];
+    const customers = await getCustomers();
     for (const c of customers) {
       const match =
         (c.name && c.name.toLowerCase().includes(normalized)) ||

@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::models::customer::{CreateCustomer, Customer};
 use crate::error::AppError;
@@ -122,13 +122,14 @@ pub fn create_customer(
                 billing_cycle,
                 date_of_birth,
                 marriage_date,
-                notes
+                notes,
+                is_active
             )
             VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
                 ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20,
                 ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30,
-                ?31, ?32, ?33
+                ?31, ?32, ?33, ?34
             )
             "#,
             params![
@@ -165,6 +166,7 @@ pub fn create_customer(
                 input.date_of_birth,
                 input.marriage_date,
                 input.notes,
+                input.is_active,
             ],
         )
         .map_err(|error| AppError::Database(error.to_string()))?;
@@ -246,6 +248,128 @@ pub fn create_customer(
         .map_err(|error| AppError::Database(error.to_string()))?;
 
     Ok(customer)
+}
+
+// -------------------------------------------------------------
+// Get customer by ID
+// -------------------------------------------------------------
+
+pub fn get_customer(
+    connection: &Connection,
+    customer_id: i64,
+) -> Result<Option<Customer>, AppError> {
+    connection
+        .query_row(
+            r#"
+            SELECT
+                id,
+                customer_code,
+                registration_date,
+                prefix,
+                name,
+                customer_type,
+                contact_person,
+                mobile1,
+                mobile2,
+                email,
+                alternate_email,
+                address,
+                city,
+                state,
+                state_code,
+                pin_code,
+                gst_number,
+                pan,
+                vendor_code,
+                billing_name,
+                billing_same_as_address,
+                billing_address,
+                billing_city,
+                billing_state,
+                billing_state_code,
+                billing_pin_code,
+                opening_balance_paise,
+                opening_balance_type,
+                credit_limit_paise,
+                payment_terms,
+                billing_cycle,
+                date_of_birth,
+                marriage_date,
+                notes,
+                is_active,
+                created_at,
+                updated_at
+            FROM customers
+            WHERE id = ?1
+            "#,
+            [customer_id],
+            map_customer,
+        )
+        .optional()
+        .map_err(|error| AppError::Database(error.to_string()))
+}
+
+// -------------------------------------------------------------
+// List customers
+// -------------------------------------------------------------
+
+pub fn list_customers(
+    connection: &Connection,
+) -> Result<Vec<Customer>, AppError> {
+    let mut statement = connection
+        .prepare(
+            r#"
+            SELECT
+                id,
+                customer_code,
+                registration_date,
+                prefix,
+                name,
+                customer_type,
+                contact_person,
+                mobile1,
+                mobile2,
+                email,
+                alternate_email,
+                address,
+                city,
+                state,
+                state_code,
+                pin_code,
+                gst_number,
+                pan,
+                vendor_code,
+                billing_name,
+                billing_same_as_address,
+                billing_address,
+                billing_city,
+                billing_state,
+                billing_state_code,
+                billing_pin_code,
+                opening_balance_paise,
+                opening_balance_type,
+                credit_limit_paise,
+                payment_terms,
+                billing_cycle,
+                date_of_birth,
+                marriage_date,
+                notes,
+                is_active,
+                created_at,
+                updated_at
+            FROM customers
+            ORDER BY id DESC
+            "#,
+        )
+        .map_err(|error| AppError::Database(error.to_string()))?;
+
+    let customers = statement
+        .query_map([], map_customer)
+        .map_err(|error| AppError::Database(error.to_string()))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| AppError::Database(error.to_string()))?;
+
+    Ok(customers)
 }
 
 // -------------------------------------------------------------

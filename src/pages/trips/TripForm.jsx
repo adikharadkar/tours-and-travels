@@ -128,10 +128,10 @@ export default function TripForm() {
   const [drivers, setDrivers] = useState([]);
 
   // Load masters & existing trip on mount
-  useEffect(() => {
+  useEffect(async () => {
     try {
       const tripsData = getTrips();
-      const customersData = getCustomers();
+      const customersData = await getCustomers();
       const vehiclesData = getVehicles();
       const driversData = getDrivers();
 

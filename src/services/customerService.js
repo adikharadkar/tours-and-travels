@@ -1,6 +1,7 @@
-import { getNextCustomerCode } from "./customerCodeService";
+// import { getNextCustomerCode } from "./customerCodeService";
+import { invoke } from "@tauri-apps/api/core";
 
-const CUSTOMERS_STORAGE_KEY = "customers";
+// const CUSTOMERS_STORAGE_KEY = "customers";
 
 const DEFAULT_CUSTOMERS = [
   {
@@ -220,97 +221,125 @@ const normalize = (value) =>
     .trim()
     .toLowerCase();
 
-const getStoredCustomers = () => {
-  try {
-    const storedCustomers = localStorage.getItem(CUSTOMERS_STORAGE_KEY);
+// const getStoredCustomers = () => {
+//   try {
+//     const storedCustomers = localStorage.getItem(CUSTOMERS_STORAGE_KEY);
 
-    if (!storedCustomers) {
-      localStorage.setItem(
-        CUSTOMERS_STORAGE_KEY,
-        JSON.stringify(DEFAULT_CUSTOMERS),
-      );
-      return DEFAULT_CUSTOMERS;
-    }
+//     if (!storedCustomers) {
+//       localStorage.setItem(
+//         CUSTOMERS_STORAGE_KEY,
+//         JSON.stringify(DEFAULT_CUSTOMERS),
+//       );
+//       return DEFAULT_CUSTOMERS;
+//     }
 
-    const customers = JSON.parse(storedCustomers);
+//     const customers = JSON.parse(storedCustomers);
 
-    if (!Array.isArray(customers)) {
-      throw new Error("Stored customer data is invalid.");
-    }
+//     if (!Array.isArray(customers)) {
+//       throw new Error("Stored customer data is invalid.");
+//     }
 
-    let needsResave = false;
-    const normalized = customers.map((c, index) => {
-      let updated = { ...c };
-      if (!updated.id) {
-        needsResave = true;
-        updated.id = `cust_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 8)}`;
-      }
-      if (updated.gstin === undefined) {
-        updated.gstin = updated.gstNumber || "";
-        needsResave = true;
-      }
-      if (updated.city === undefined) {
-        updated.city = updated.billingCity || "";
-        needsResave = true;
-      }
-      if (updated.state === undefined) {
-        updated.state = updated.billingState || "";
-        needsResave = true;
-      }
-      if (updated.postalCode === undefined) {
-        updated.postalCode = updated.pinCode || updated.billingPincode || "";
-        needsResave = true;
-      }
-      if (updated.financialStatus === undefined) {
-        const amt = Number(
-          updated.outstandingAmount ?? updated.openingBalance ?? 0,
-        );
-        updated.financialStatus =
-          amt > 20000 ? "critical" : amt > 0 ? "warning" : "healthy";
-        needsResave = true;
-      }
-      if (updated.outstandingAmount === undefined) {
-        updated.outstandingAmount = Number(updated.openingBalance ?? 0);
-        needsResave = true;
-      }
-      if (updated.paymentStatus === undefined) {
-        updated.paymentStatus =
-          updated.financialStatus === "critical"
-            ? "Collections - Hold"
-            : updated.financialStatus === "warning"
-              ? "14 Days Overdue"
-              : updated.paymentTerms
-                ? `Net ${String(updated.paymentTerms).replace("_days", "")} (Current)`
-                : "Net 30 (Current)";
-        needsResave = true;
-      }
-      return updated;
-    });
+//     let needsResave = false;
+//     const normalized = customers.map((c, index) => {
+//       let updated = { ...c };
+//       if (!updated.id) {
+//         needsResave = true;
+//         updated.id = `cust_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 8)}`;
+//       }
+//       if (updated.gstin === undefined) {
+//         updated.gstin = updated.gstNumber || "";
+//         needsResave = true;
+//       }
+//       if (updated.city === undefined) {
+//         updated.city = updated.billingCity || "";
+//         needsResave = true;
+//       }
+//       if (updated.state === undefined) {
+//         updated.state = updated.billingState || "";
+//         needsResave = true;
+//       }
+//       if (updated.postalCode === undefined) {
+//         updated.postalCode = updated.pinCode || updated.billingPincode || "";
+//         needsResave = true;
+//       }
+//       if (updated.financialStatus === undefined) {
+//         const amt = Number(
+//           updated.outstandingAmount ?? updated.openingBalance ?? 0,
+//         );
+//         updated.financialStatus =
+//           amt > 20000 ? "critical" : amt > 0 ? "warning" : "healthy";
+//         needsResave = true;
+//       }
+//       if (updated.outstandingAmount === undefined) {
+//         updated.outstandingAmount = Number(updated.openingBalance ?? 0);
+//         needsResave = true;
+//       }
+//       if (updated.paymentStatus === undefined) {
+//         updated.paymentStatus =
+//           updated.financialStatus === "critical"
+//             ? "Collections - Hold"
+//             : updated.financialStatus === "warning"
+//               ? "14 Days Overdue"
+//               : updated.paymentTerms
+//                 ? `Net ${String(updated.paymentTerms).replace("_days", "")} (Current)`
+//                 : "Net 30 (Current)";
+//         needsResave = true;
+//       }
+//       return updated;
+//     });
 
-    if (needsResave) {
-      localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify(normalized));
-    }
+//     if (needsResave) {
+//       localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify(normalized));
+//     }
 
-    return normalized;
-  } catch (error) {
-    console.error("Failed to read customers from localStorage:", error);
+//     return normalized;
+//   } catch (error) {
+//     console.error("Failed to read customers from localStorage:", error);
 
-    throw new Error("Unable to load customer data.", { cause: error });
-  }
-};
+//     throw new Error("Unable to load customer data.", { cause: error });
+//   }
+// };
 
-export function getCustomers() {
-  return getStoredCustomers();
+function mapCustomerFromBackend(customer) {
+  return {
+    ...customer,
+
+    openingBalance:
+      customer.openingBalancePaise !== null &&
+      customer.openingBalancePaise !== undefined
+        ? (customer.openingBalancePaise / 100).toFixed(2)
+        : "0.00",
+
+    creditLimit:
+      customer.creditLimitPaise !== null &&
+      customer.creditLimitPaise !== undefined
+        ? (customer.creditLimitPaise / 100).toFixed(2)
+        : "",
+
+    vendorCode: customer.vendorCode || "",
+  };
 }
 
-export function getCustomerById(customerId) {
-  if (!customerId) {
+export async function getCustomers() {
+  const customers = await invoke("list_customers");
+
+  return customers.map(mapCustomerFromBackend);
+}
+
+export async function getCustomerById(customerId) {
+  const id = Number(customerId);
+
+  if (!Number.isInteger(id) || id <= 0) {
     return null;
   }
 
-  const customers = getStoredCustomers();
+  const customer = await invoke("get_customer", {
+    customerId: id,
+  });
 
-  return customers.find((customer) => customer.id === customerId) ?? null;
+  return customer
+    ? mapCustomerFromBackend(customer)
+    : null;
 }
 
 export function deleteCustomer(customerId) {
@@ -459,49 +488,90 @@ export function updateCustomer(customerId, customerData) {
   return updatedCustomer;
 }
 
-export function saveCustomer(customerData) {
+function rupeesToPaise(value) {
+  const text = String(value ?? "").trim();
+
+  if (!text) {
+    return 0;
+  }
+
+  const match = text.match(/^(\d+)(?:\.(\d{1,2}))?$/);
+
+  if (!match) {
+    throw new Error("Invalid rupee amount.");
+  }
+
+  const rupees = Number(match[1]);
+  const paise = Number((match[2] || "").padEnd(2, "0"));
+
+  return rupees * 100 + paise;
+}
+
+export async function saveCustomer(customerData) {
   if (!customerData || typeof customerData !== "object") {
     throw new Error("Invalid customer data.");
   }
 
-  const customers = getStoredCustomers();
+  const payload = {
+    registrationDate: customerData.registrationDate,
+    prefix: customerData.prefix || null,
+    name: customerData.name,
+    customerType: customerData.customerType,
+    contactPerson: customerData.contactPerson || null,
 
-  const duplicateCustomer = findDuplicateCustomer(customerData, customers);
+    mobile1: customerData.mobile1,
+    mobile2: customerData.mobile2 || null,
+    email: customerData.email,
+    alternateEmail: customerData.alternateEmail || null,
 
-  if (duplicateCustomer) {
-    throw new Error(
-      `Customer already exists with code ${duplicateCustomer.customerCode}.`,
-    );
-  }
+    address: customerData.address,
+    city: customerData.city,
+    state: customerData.state,
+    stateCode: customerData.stateCode,
+    pinCode: customerData.pinCode,
 
-  const newId =
-    customerData.id ||
-    (typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `cust_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+    gstNumber: customerData.gstNumber || null,
+    pan: customerData.pan || null,
+    vendorCode: customerData.vendorCode || null,
 
-  const now = new Date().toISOString();
+    billingName: customerData.billingName,
+    billingSameAsAddress: Boolean(customerData.billingSameAsAddress),
+    billingAddress: customerData.billingAddress,
+    billingCity: customerData.billingCity,
+    billingState: customerData.billingState,
+    billingStateCode: customerData.billingStateCode,
+    billingPinCode: customerData.billingPinCode,
 
-  const customer = {
-    ...customerData,
-    id: newId,
-    customerCode: customerData.customerCode || getNextCustomerCode(),
-    createdAt: customerData.createdAt || now,
-    updatedAt: customerData.updatedAt || now,
+    openingBalancePaise: rupeesToPaise(customerData.openingBalance),
+    openingBalanceType: customerData.openingBalanceType,
+
+    creditLimitPaise:
+      customerData.creditLimit === "" ||
+      customerData.creditLimit === null ||
+      customerData.creditLimit === undefined
+        ? null
+        : rupeesToPaise(customerData.creditLimit),
+
+    paymentTerms: customerData.paymentTerms,
+    billingCycle: customerData.billingCycle,
+
+    dateOfBirth: customerData.dateOfBirth || null,
+    marriageDate: customerData.marriageDate || null,
+    notes: customerData.notes || null,
+
+    // Customer status
+    isActive: customerData.isActive !== false,
   };
 
-  const updatedCustomers = [...customers, customer];
-
   try {
-    localStorage.setItem(
-      CUSTOMERS_STORAGE_KEY,
-      JSON.stringify(updatedCustomers),
-    );
+    const createdCustomer = await invoke("create_customer", {
+      input: payload,
+    });
+
+    return mapCustomerFromBackend(createdCustomer);
   } catch (error) {
-    console.error("Failed to save customer to localStorage:", error);
+    console.error("Failed to save customer:", error);
 
-    throw new Error("Unable to save customer.", { cause: error });
+    throw error;
   }
-
-  return customer;
 }

@@ -42,11 +42,11 @@ export default function Dashboard() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
 
   // Load all operational datasets
-  const loadDashboardData = useCallback(() => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setError(null);
       const v = getVehicles() || [];
-      const c = getCustomers() || [];
+      const c = await getCustomers() || [];
       const d = getDrivers() || [];
       const t = getTrips() || [];
       const inv = getInvoices() || [];

@@ -97,6 +97,8 @@ pub struct CreateCustomer {
     pub date_of_birth: Option<String>,
     pub marriage_date: Option<String>,
     pub notes: Option<String>,
+
+    pub is_active: bool,
 }
 
 impl CreateCustomer {

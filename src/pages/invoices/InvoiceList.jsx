@@ -71,12 +71,12 @@ export default function InvoiceList() {
   const [toastMessage, setToastMessage] = useState(null);
 
   // Load initial data
-  const loadData = () => {
+  const loadData = async () => {
     setIsLoading(true);
     setError(null);
     try {
       const storedInvoices = getInvoices();
-      const storedCustomers = getCustomers();
+      const storedCustomers = await getCustomers();
       const storedTrips = getTrips();
       setInvoices(storedInvoices || []);
       setCustomers(storedCustomers || []);

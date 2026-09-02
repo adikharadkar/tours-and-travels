@@ -103,10 +103,10 @@ export default function GenerateInvoice() {
   const [issuedInvoice, setIssuedInvoice] = useState(null);
 
   // Load datasets
-  useEffect(() => {
+  useEffect(async () => {
     try {
       const storedTrips = getTrips();
-      const storedCustomers = getCustomers();
+      const storedCustomers = await getCustomers();
       const storedVehicles = getVehicles();
       const storedDrivers = getDrivers();
       const storedInvoices = getInvoices();

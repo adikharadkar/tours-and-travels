@@ -1,8 +1,12 @@
-use super::customer_repository::create_customer;
+use super::customer_repository::{
+    create_customer,
+    get_customer,
+    list_customers,
+};
 use crate::database::migrations::run_migrations;
+use crate::error::AppError;
 use crate::models::customer::CreateCustomer;
 use rusqlite::Connection;
-use crate::error::AppError;
 
 fn test_connection() -> Connection {
     let mut connection =
@@ -103,6 +107,76 @@ fn creates_customer_with_generated_code() {
     assert_eq!(customer.customer_type, "company");
     assert_eq!(customer.mobile1, "9876543210");
     assert!(customer.is_active);
+}
+
+#[test]
+fn gets_customer_by_id() {
+    let mut connection = test_connection();
+
+    let mut input = valid_customer();
+    input.normalize();
+    input
+        .validate()
+        .expect("Customer validation should succeed");
+
+    let created = create_customer(&mut connection, &input)
+        .expect("Customer should be created");
+
+    let customer = get_customer(&connection, created.id)
+        .expect("Query should succeed")
+        .expect("Customer should exist");
+
+    assert_eq!(customer.id, created.id);
+    assert_eq!(customer.customer_code, "CUS-00001");
+    assert_eq!(customer.name, input.name);
+    assert_eq!(customer.mobile1, input.mobile1);
+    assert_eq!(customer.email, input.email);
+}
+
+#[test]
+fn returns_none_for_unknown_customer_id() {
+    let connection = test_connection();
+
+    let customer = get_customer(&connection, 999999)
+        .expect("Query should succeed");
+
+    assert!(customer.is_none());
+}
+
+#[test]
+fn lists_customers() {
+    let mut connection = test_connection();
+
+    let mut first_input = valid_customer();
+    first_input.normalize();
+    first_input
+        .validate()
+        .expect("First customer validation should succeed");
+
+    let first = create_customer(&mut connection, &first_input)
+        .expect("First customer should be created");
+
+    let mut second_input = valid_customer();
+    second_input.name = "Second Customer".to_string();
+    second_input.mobile1 = "9876543211".to_string();
+    second_input.email = "second@example.com".to_string();
+
+    second_input.normalize();
+    second_input
+        .validate()
+        .expect("Second customer validation should succeed");
+
+    let second = create_customer(&mut connection, &second_input)
+        .expect("Second customer should be created");
+
+    let customers = list_customers(&connection)
+        .expect("Query should succeed");
+
+    assert_eq!(customers.len(), 2);
+
+    // list_customers() orders by id DESC.
+    assert_eq!(customers[0].id, second.id);
+    assert_eq!(customers[1].id, first.id);
 }
 
 #[test]
